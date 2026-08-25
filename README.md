@@ -6,6 +6,10 @@ de exercícios com pontuação, cronômetro, tentativas e ranking.
 **Stack:** React 19 + Vite (JSX), Supabase (Auth / Postgres / RLS / RPC), CSS próprio,
 deploy na Vercel — a mesma base do `Sist-Gest-Pedag`.
 
+**No ar:** <https://exergame-iota.vercel.app> — publicado a cada push em `main`.
+O sufixo `-iota` não é enfeite: `exergame.vercel.app` pertence a outro projeto,
+sem relação com este.
+
 ## Como rodar
 
 ```bash
@@ -30,6 +34,13 @@ Aplique os arquivos SQL na ordem, pelo SQL Editor do Supabase ou pelo MCP:
 2. `supabase_exergame_rls.sql` — Row Level Security
 3. `supabase_exergame_rpc.sql` — RPCs de execução, pontuação e ranking
 4. `supabase_exergame_seed.sql` — dados de demonstração (opcional)
+
+> O seed insere as questões e suas alternativas num único comando (`with novas as
+> (insert ...)`). Isso só funciona com RLS desligada — como superusuário no SQL
+> Editor. Rodando como professor autenticado, a policy de `exergame_alternativas`
+> faz um `exists` sobre a questão, que ainda não está visível no snapshot do
+> próprio comando, e o insert é recusado. Para criar conteúdo **pelo app** ou
+> como professor: insira as questões em um statement e as alternativas em outro.
 
 No painel do Supabase, em **Authentication → Providers → Email**, desligue
 "Confirm email" para que aluno e professor entrem logo após o cadastro

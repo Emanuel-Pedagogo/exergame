@@ -20,7 +20,7 @@ listas e questões, define o X da dificuldade, acompanha resultados) e **gestor*
 | Estilo | CSS próprio em `src/App.css` | sem framework; classes utilitárias compartilhadas |
 | Backend | Supabase (Postgres + Auth + RLS + RPC) | dispensa servidor Node/Laravel próprio |
 | Testes | Vitest sobre `src/utils` | regras de pontuação e ordenação do ranking |
-| Deploy | Vercel (build estático `dist/`) | mesma conta dos outros projetos |
+| Deploy | Vercel (build estático `dist/`) | <https://exergame-iota.vercel.app>, automático a cada push em `main` |
 
 A API REST desenhada na primeira versão do projeto (`POST /auth/login`,
 `GET /aluno/listas`, …) foi substituída por PostgREST + RPC do Supabase. O mapa
@@ -138,6 +138,20 @@ infraestrutura Supabase/Vercel, não código deste repositório.
 zero, soma do PT e o critério de desempate do ranking. O fluxo de banco (RLS,
 RPCs, tentativas de burla) é exercitado por `supabase_exergame_teste_fluxo.sql`
 contra um Postgres local — veja o README. Não há suíte E2E.
+
+Em 25/08/2026 o fluxo foi validado também **contra o banco de produção**, com
+dados descartáveis criados e removidos em seguida: gatilho de criação de perfil,
+sigilo do gabarito, penalidade por tentativa (100→80), penalidade por tempo
+(14 s → 100→90), soma do PT, ordenação do ranking, e cinco tentativas de burla —
+todas bloqueadas.
+
+**Armadilha ao medir tempo.** `exergame_responder` calcula o tempo com `now()`,
+que no Postgres é o horário de **início da transação**. No app isso é correto,
+porque PostgREST abre uma transação por chamada. Mas um teste que chame
+`exergame_abrir_questao` e `exergame_responder` dentro da mesma transação vai
+medir sempre `tempo_seg = 0` e parecer um bug de pontuação — não é, e `pg_sleep`
+não resolve. Para exercitar a penalidade de tempo, as duas chamadas precisam
+estar em transações separadas.
 
 ## 11. Dívidas conhecidas
 
