@@ -155,9 +155,8 @@ estar em transações separadas.
 
 ## 11. Dívidas conhecidas
 
-1. **Cadastro de professor é aberto.** Quem escolher "Sou professor" na tela de
-   cadastro vira professor. Para produção: convite por e-mail, código de escola,
-   ou criação pelo gestor via Admin API.
+1. ~~**Cadastro de professor é aberto.**~~ Resolvido em 25/08/2026 com código de
+   convite — ver §12.
 2. **Sem gestão de turmas na interface.** As turmas são inseridas via SQL; falta
    uma tela para o gestor/professor criar turmas e mover alunos.
 3. **Banco compartilhado com o SACP.** Funciona e não custa nada, mas mistura
@@ -171,3 +170,34 @@ estar em transações separadas.
    caminho de correção em `exergame_responder`.
 7. **Sem Capacitor/Android.** O app é responsivo e roda no navegador do celular;
    empacotar segue o mesmo roteiro do Sist-Gest-Pedag, se for necessário.
+
+## 12. Quem pode virar professor
+
+Até 25/08/2026 qualquer um: a tela mandava `perfil: 'professor'` no cadastro e o
+servidor aceitava. Como o app é público e a chave `anon` está no bundle, não era
+preciso nem usar a tela — bastava uma chamada à API.
+
+Agora virar professor exige um **código de convite**
+(`supabase_exergame_convite_professor.sql`). O aluno segue se cadastrando livre.
+
+- `exergame_convites_professor` guarda os códigos, com validade (`expira_em`),
+  limite de usos (`usos_max`) e chave de desligar (`ativo`). A tabela tem RLS
+  ligada e **nenhuma policy**, mais `revoke` para `anon`/`authenticated`: nem
+  logado o cliente lê, escreve ou descobre um código.
+- `exergame_consumir_convite()` valida e gasta um uso numa tacada só (o `update
+  … returning` evita corrida entre dois cadastros simultâneos). É `SECURITY
+  DEFINER` e **sem execute para o cliente** — se fosse chamável, daria para
+  descobrir códigos por tentativa e erro.
+- Os **dois** caminhos de criação de perfil exigem o código quando o perfil pedido
+  é `professor`: o gatilho `exergame_handle_new_user` (cadastro novo) e a RPC
+  `exergame_criar_meu_perfil` (conta que já existia no Auth). Fechar só um deixaria
+  o outro aberto.
+- Perfil desconhecido (`gestor`, qualquer outro) cai para `aluno` em vez de dar
+  erro. `gestor` continua existindo no schema, mas nunca por auto-cadastro.
+- O código digitado é apagado do `raw_user_meta_data` depois de usado.
+- Auto-promoção depois de criado já era barrada pela policy `profiles_update_self`
+  (`with check … perfil = exergame_perfil()`), que impede o próprio usuário de
+  trocar seu campo `perfil`. Note que `profiles_update_docente` permite a um
+  professor mudar o perfil de qualquer um — outra razão para o portão de entrada.
+
+Emitir, conferir e revogar códigos: instruções no rodapé do arquivo SQL.

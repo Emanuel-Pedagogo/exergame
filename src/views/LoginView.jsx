@@ -19,6 +19,7 @@ function LoginView() {
     email: '',
     senha: '',
     turmaId: '',
+    codigo: '',
   });
 
   useEffect(() => {
@@ -67,6 +68,11 @@ function LoginView() {
         return;
       }
 
+      if (!ehAluno && !form.codigo.trim()) {
+        toast.warn('Informe o código de professor fornecido pela coordenação.');
+        return;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password: senha,
@@ -79,6 +85,9 @@ function LoginView() {
             matricula: ehAluno ? form.matricula.trim() : null,
             perfil: ehAluno ? 'aluno' : 'professor',
             turma_id: ehAluno ? form.turmaId || null : null,
+            // Quem valida é o gatilho no banco — mandar 'professor' daqui não
+            // basta. O gatilho apaga este campo do usuário depois de usá-lo.
+            codigo_professor: ehAluno ? null : form.codigo.trim(),
           },
         },
       });
@@ -91,11 +100,20 @@ function LoginView() {
         toast.success('Cadastro concluído. Boa sorte!');
       }
     } catch (erro) {
+      // O gatilho aborta o cadastro quando o código não vale; o Auth devolve
+      // isso como "Database error saving new user", que não diz nada ao professor.
+      const codigoRecusado =
+        !ehAluno &&
+        modo === 'cadastro' &&
+        /codigo_professor_invalido|database error/i.test(erro.message);
+
       const msg = /invalid login credentials/i.test(erro.message)
         ? ehAluno
           ? 'Matrícula ou senha incorreta.'
           : 'E-mail ou senha incorreta.'
-        : erro.message;
+        : codigoRecusado
+          ? 'Código de professor inválido, expirado ou já utilizado. Peça um código novo à coordenação.'
+          : erro.message;
       toast.error(msg);
     } finally {
       setEnviando(false);
@@ -160,6 +178,20 @@ function LoginView() {
                 value={form.email}
                 onChange={alterar('email')}
                 autoComplete="email"
+              />
+            </div>
+          )}
+
+          {modo === 'cadastro' && !ehAluno && (
+            <div className="input-group">
+              <label htmlFor="codigo">Código de professor</label>
+              <input
+                id="codigo"
+                value={form.codigo}
+                onChange={alterar('codigo')}
+                autoComplete="off"
+                spellCheck="false"
+                placeholder="Fornecido pela coordenação"
               />
             </div>
           )}

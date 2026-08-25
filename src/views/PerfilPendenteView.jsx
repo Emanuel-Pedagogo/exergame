@@ -14,6 +14,7 @@ function PerfilPendenteView({ email, onCriado, onSair }) {
   const [nome, setNome] = useState('');
   const [matricula, setMatricula] = useState('');
   const [turmaId, setTurmaId] = useState('');
+  const [codigo, setCodigo] = useState('');
   const [turmas, setTurmas] = useState([]);
   const [enviando, setEnviando] = useState(false);
 
@@ -28,12 +29,19 @@ function PerfilPendenteView({ email, onCriado, onSair }) {
   const criar = async (e) => {
     e.preventDefault();
     if (enviando) return;
+
+    if (perfil === 'professor' && !codigo.trim()) {
+      toast.warn('Informe o código de professor fornecido pela coordenação.');
+      return;
+    }
+
     setEnviando(true);
     const { error } = await supabase.rpc('exergame_criar_meu_perfil', {
       p_nome: nome,
       p_perfil: perfil,
       p_matricula: perfil === 'aluno' ? matricula : null,
       p_turma_id: perfil === 'aluno' ? turmaId || null : null,
+      p_codigo: perfil === 'professor' ? codigo.trim() : null,
     });
     setEnviando(false);
     if (error) {
@@ -87,6 +95,20 @@ function PerfilPendenteView({ email, onCriado, onSair }) {
               autoComplete="name"
             />
           </div>
+
+          {perfil === 'professor' && (
+            <div className="input-group">
+              <label htmlFor="perfil-codigo">Código de professor</label>
+              <input
+                id="perfil-codigo"
+                value={codigo}
+                onChange={(e) => setCodigo(e.target.value)}
+                autoComplete="off"
+                spellCheck="false"
+                placeholder="Fornecido pela coordenação"
+              />
+            </div>
+          )}
 
           {perfil === 'aluno' && (
             <>

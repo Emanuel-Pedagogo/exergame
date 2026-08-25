@@ -33,7 +33,9 @@ Aplique os arquivos SQL na ordem, pelo SQL Editor do Supabase ou pelo MCP:
 1. `supabase_exergame_schema.sql` — tabelas, índices, trigger que cria o `profile`
 2. `supabase_exergame_rls.sql` — Row Level Security
 3. `supabase_exergame_rpc.sql` — RPCs de execução, pontuação e ranking
-4. `supabase_exergame_seed.sql` — dados de demonstração (opcional)
+4. `supabase_exergame_convite_professor.sql` — exige código de convite para virar
+   professor (sem ele, qualquer um se cadastra como professor)
+5. `supabase_exergame_seed.sql` — dados de demonstração (opcional)
 
 > O seed insere as questões e suas alternativas num único comando (`with novas as
 > (insert ...)`). Isso só funciona com RLS desligada — como superusuário no SQL
@@ -41,6 +43,22 @@ Aplique os arquivos SQL na ordem, pelo SQL Editor do Supabase ou pelo MCP:
 > faz um `exists` sobre a questão, que ainda não está visível no snapshot do
 > próprio comando, e o insert é recusado. Para criar conteúdo **pelo app** ou
 > como professor: insira as questões em um statement e as alternativas em outro.
+
+### Cadastro de professor
+
+Virar professor exige um código de convite — o aluno se cadastra livremente.
+Para emitir um, no SQL Editor:
+
+```sql
+insert into public.exergame_convites_professor (codigo, descricao, usos_max, expira_em)
+values ('ESCOLA-MODELO-2026', 'Professores da Escola Modelo', 10, now() + interval '90 days');
+```
+
+Conferir o uso: `select codigo, usos, usos_max, ativo, expira_em from public.exergame_convites_professor;`
+Revogar: `update public.exergame_convites_professor set ativo = false where codigo = '...';`
+
+O código é comparado em maiúsculas e sem espaços nas pontas, então o professor
+pode digitá-lo como quiser. Detalhes do desenho em `docs/CONTEXTO-PROJETO.md` §12.
 
 No painel do Supabase, em **Authentication → Providers → Email**, desligue
 "Confirm email" para que aluno e professor entrem logo após o cadastro
