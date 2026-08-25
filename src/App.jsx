@@ -10,6 +10,7 @@ import ProfessorListasView from './views/ProfessorListasView';
 import ProfessorQuestoesView from './views/ProfessorQuestoesView';
 import ProfessorResultadosView from './views/ProfessorResultadosView';
 import ExecucaoModal from './views/ExecucaoModal';
+import PerfilPendenteView from './views/PerfilPendenteView';
 
 /**
  * Hub da aplicação. Sem React Router: a navegação é a string `currentView`,
@@ -116,8 +117,20 @@ function App() {
     );
   }
 
-  if (!session || !profile) {
+  if (!session) {
     return <LoginView />;
+  }
+
+  // Sessão válida sem perfil: conta que já existia no Auth (o banco é dividido
+  // com o SACP) e nunca passou pelo gatilho que cria o perfil do Exergame.
+  if (!profile) {
+    return (
+      <PerfilPendenteView
+        email={session.user.email}
+        onCriado={async () => setProfile(await carregarProfile(session.user.id))}
+        onSair={sair}
+      />
+    );
   }
 
   const ehAluno = profile.perfil === 'aluno';

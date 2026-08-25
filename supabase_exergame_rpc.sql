@@ -412,3 +412,56 @@ grant execute on function public.exergame_finalizar_execucao(uuid) to authentica
 grant execute on function public.exergame_ranking(uuid) to authenticated;
 grant execute on function public.exergame_listas_aluno() to authenticated;
 grant execute on function public.exergame_resultados_lista(uuid) to authenticated;
+
+-- ------------------------------- perfil para conta já existente no Auth ---
+-- O banco é dividido com o SACP: uma conta criada lá (antes do Exergame) entra
+-- sem perfil, porque o gatilho só dispara na criação do usuário. Esta função
+-- deixa a própria pessoa completar o cadastro. Só age sobre auth.uid() e só
+-- quando ainda não existe perfil — por isso exergame_profiles não tem policy
+-- de INSERT: a criação passa exclusivamente por aqui.
+create or replace function public.exergame_criar_meu_perfil(
+  p_nome      text,
+  p_perfil    text,
+  p_matricula text default null,
+  p_turma_id  uuid default null
+) returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare v_uid uuid := auth.uid();
+begin
+  if v_uid is null then
+    raise exception 'Não autenticado';
+  end if;
+
+  if exists (select 1 from public.exergame_profiles where id = v_uid) then
+    raise exception 'Esta conta já tem perfil no Exergame';
+  end if;
+
+  if coalesce(trim(p_nome), '') = '' then
+    raise exception 'Informe o nome';
+  end if;
+
+  if p_perfil not in ('aluno', 'professor') then
+    raise exception 'Perfil inválido';
+  end if;
+
+  if p_perfil = 'aluno' and coalesce(trim(p_matricula), '') = '' then
+    raise exception 'Informe a matrícula';
+  end if;
+
+  insert into public.exergame_profiles (id, nome, matricula, perfil, turma_id)
+  values (
+    v_uid,
+    trim(p_nome),
+    case when p_perfil = 'aluno' then trim(p_matricula) else null end,
+    p_perfil,
+    case when p_perfil = 'aluno' then p_turma_id else null end
+  );
+end;
+$$;
+
+revoke all on function public.exergame_criar_meu_perfil(text, text, text, uuid) from public;
+revoke execute on function public.exergame_criar_meu_perfil(text, text, text, uuid) from anon;
+grant execute on function public.exergame_criar_meu_perfil(text, text, text, uuid) to authenticated;

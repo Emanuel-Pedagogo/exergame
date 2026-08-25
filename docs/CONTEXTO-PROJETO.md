@@ -48,7 +48,10 @@ exergame_execucoes_questao(id, execucao_id, questao_id, tentativas, tempo_seg,
 O gatilho `on_auth_user_created_exergame` roda sobre `auth.users`, que é comum
 aos dois sistemas — por isso ele só cria perfil quando o metadata do cadastro
 traz `app = 'exergame'`. Um professor que se cadastra no SACP não vira aluno
-aqui, e vice-versa. Nas consultas do front, os relacionamentos são apelidados
+aqui, e vice-versa. A contrapartida: uma conta que **já existia** no Auth entra
+sem perfil — `PerfilPendenteView` cobre esse caso e chama
+`exergame_criar_meu_perfil()`. `exergame_profiles` não tem policy de INSERT;
+a criação só acontece pelo gatilho ou por essa RPC. Nas consultas do front, os relacionamentos são apelidados
 (`turma:exergame_turmas(nome)`) para que o código continue lendo `lista.turma`.
 
 `profiles` substitui a entidade `User` do documento original: o Supabase Auth já
@@ -108,12 +111,14 @@ gabarito. A correção acontece dentro de `exergame_responder()`.
 | `GET /aluno/ranking?listaId=` | `rpc('exergame_ranking')` |
 | `GET/POST/PUT/DELETE /prof/listas`, `/prof/questoes` | PostgREST: `supabase.from('listas'\|'questoes'\|'alternativas')` com RLS |
 | `GET /prof/resultados?listaId=` | `rpc('exergame_resultados_lista')` + `rpc('exergame_ranking')` |
+| — (não existia) | `rpc('exergame_criar_meu_perfil')` — conta antiga do Auth completa o cadastro |
 
 ## 8. Mapa de telas
 
 | `currentView` | Arquivo | Perfil |
 | --- | --- | --- |
 | (sem sessão) | `views/LoginView.jsx` | — |
+| (sessão sem perfil) | `views/PerfilPendenteView.jsx` | — |
 | `aluno-home` | `views/AlunoHomeView.jsx` | aluno |
 | `aluno-ranking` | `views/RankingView.jsx` | aluno |
 | `aluno-historico` | `views/HistoricoView.jsx` | aluno |
