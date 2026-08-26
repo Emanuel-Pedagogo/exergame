@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ModalShell from '../components/ModalShell';
-import { supabase } from '../supabaseClient';
+import { supabase, MATRICULA_DOMAIN } from '../supabaseClient';
 import { toast, confirmAction } from '../utils/appFeedback';
 import { parsearListaAlunos, SITUACAO_ALUNO } from '../utils/listaAlunos';
 
@@ -12,14 +12,17 @@ import { parsearListaAlunos, SITUACAO_ALUNO } from '../utils/listaAlunos';
  * certos; a conta nasce quando o aluno faz o primeiro acesso e escolhe a senha.
  * Por isso cada linha tem um estado: "aguardando 1º acesso" ou "entrou".
  */
-function ProfessorAlunosView() {
+function ProfessorAlunosView({ escolaId }) {
   const [turmas, setTurmas] = useState([]);
   const [turmaId, setTurmaId] = useState('');
   const [alunos, setAlunos] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
-  const [modal, setModal] = useState(null); // 'um' | 'lote' | 'turma'
-  const [form, setForm] = useState({ nome: '', matricula: '' });
+  const [modal, setModal] = useState(null); // 'um' | 'lote' | 'turma' | 'editar' | 'senha'
+  const [form, setForm] = useState({ nome: '', matricula: '', senha: '' });
+  const [edicao, setEdicao] = useState(null); // aluno em edição
+  const [senhaForm, setSenhaForm] = useState({ aluno: null, senha: '' });
+  const [loteSenha, setLoteSenha] = useState('');
   const [lote, setLote] = useState('');
   const [novaTurma, setNovaTurma] = useState({ nome: '', ano: String(new Date().getFullYear()) });
   const [relatorio, setRelatorio] = useState(null);
@@ -32,6 +35,7 @@ function ProfessorAlunosView() {
       supabase
         .from('exergame_turmas')
         .select('id, nome, ano')
+        .eq('escola_id', escolaId)
         .order('nome')
         .then(({ data }) => {
           const lista = data ?? [];
@@ -40,7 +44,7 @@ function ProfessorAlunosView() {
           if (lista.length === 0) setCarregando(false);
           return lista;
         }),
-    [],
+    [escolaId],
   );
 
   const carregarAlunos = useCallback(() => {
@@ -85,7 +89,8 @@ function ProfessorAlunosView() {
     setSalvando(true);
     const { data, error } = await supabase.rpc('exergame_cadastrar_alunos', {
       p_turma_id: turmaId,
-      p_alunos: linhas.map(({ nome, matricula }) => ({ nome, matricula })),
+      p_alunos: linhas.map(({ nome, matricula, senha }) => ({ nome, matricula, senha })),
+      p_dominio: MATRICULA_DOMAIN,
     });
     setSalvando(false);
 
@@ -94,15 +99,99 @@ function ProfessorAlunosView() {
       return;
     }
 
-    const novos = (data ?? []).filter((r) => r.situacao === 'cadastrado').length;
-    const repetidos = (data ?? []).length - novos;
+    const oks = ['cadastrado', 'conta_criada'];
+    const novos = (data ?? []).filter((r) => oks.includes(r.situacao)).length;
+    const problemas = (data ?? []).length - novos;
+    toast.success(novos === 1 ? '1 aluno cadastrado.' : `${novos} alunos cadastrados.`);
+    setModal(null);
+    setForm({ nome: '', matricula: '', senha: '' });
+    setLote('');
+    if (problemas > 0) setRelatorio(data);
+    carregarAlunos();
+  };
+
+  const salvarEdicao = async (e) => {
+    e.preventDefault();
+    if (!edicao.nome.trim()) {
+      toast.warn('Informe o nome.');
+      return;
+    }
+    setSalvando(true);
+    const { error } = await supabase.rpc('exergame_editar_aluno', {
+      p_id: edicao.id,
+      p_nome: edicao.nome.trim(),
+      p_matricula: edicao.ativado_em ? null : edicao.matricula.trim(),
+    });
+    setSalvando(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success('Aluno atualizado.');
+    setModal(null);
+    setEdicao(null);
+    carregarAlunos();
+  };
+
+  const criarContasDaTurma = async (e) => {
+    e.preventDefault();
+    const senha = loteSenha.trim();
+    if (senha && senha.length < 6) {
+      toast.warn('A senha precisa ter pelo menos 6 caracteres — ou deixe em branco.');
+      return;
+    }
+    const ok = await confirmAction({
+      title: 'Criar contas da turma',
+      message: senha
+        ? `Criar a conta de ${resumo.aguardando} aluno(s) com a senha "${senha}". Todos ficam com a mesma senha até trocarem.`
+        : `Criar a conta de ${resumo.aguardando} aluno(s) usando a própria matrícula como senha. É fácil de distribuir, mas fraco — peça que troquem depois.`,
+      confirmLabel: 'Criar contas',
+    });
+    if (!ok) return;
+
+    setSalvando(true);
+    const { data, error } = await supabase.rpc('exergame_criar_contas_turma', {
+      p_turma_id: turmaId,
+      p_senha: senha || null,
+      p_dominio: MATRICULA_DOMAIN,
+    });
+    setSalvando(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const criadas = (data ?? []).filter((r) => r.situacao === 'conta_criada').length;
+    toast.success(`${criadas} conta(s) criada(s). Os alunos já podem entrar.`);
+    setModal(null);
+    setLoteSenha('');
+    if ((data ?? []).length > criadas) setRelatorio(data);
+    carregarAlunos();
+  };
+
+  const salvarSenha = async (e) => {
+    e.preventDefault();
+    if (senhaForm.senha.trim().length < 6) {
+      toast.warn('A senha precisa ter pelo menos 6 caracteres.');
+      return;
+    }
+    setSalvando(true);
+    const { data, error } = await supabase.rpc('exergame_definir_senha_aluno', {
+      p_id: senhaForm.aluno.id,
+      p_senha: senhaForm.senha.trim(),
+      p_dominio: MATRICULA_DOMAIN,
+    });
+    setSalvando(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success(
-      novos === 1 ? '1 aluno cadastrado.' : `${novos} alunos cadastrados.`,
+      data === 'conta criada com a senha definida'
+        ? 'Conta criada. O aluno já pode entrar com a matrícula e essa senha.'
+        : 'Senha redefinida.',
     );
     setModal(null);
-    setForm({ nome: '', matricula: '' });
-    setLote('');
-    if (repetidos > 0) setRelatorio(data);
+    setSenhaForm({ aluno: null, senha: '' });
     carregarAlunos();
   };
 
@@ -114,6 +203,7 @@ function ProfessorAlunosView() {
     }
     setSalvando(true);
     const { data, error } = await supabase.rpc('exergame_criar_turma', {
+      p_escola_id: escolaId,
       p_nome: novaTurma.nome.trim(),
       p_ano: Number(novaTurma.ano) || null,
     });
@@ -196,9 +286,23 @@ function ProfessorAlunosView() {
 
       {turmaId && !carregando && alunos.length > 0 && (
         <p className="card-lista__meta">
-          {resumo.total} na lista · <span className="texto-ok">{resumo.entraram} já entraram</span> ·{' '}
-          <span className="texto-pendente">{resumo.aguardando} aguardando o 1º acesso</span>
+          {resumo.total} na lista · <span className="texto-ok">{resumo.entraram} com conta</span> ·{' '}
+          <span className="texto-pendente">{resumo.aguardando} sem conta ainda</span>
         </p>
+      )}
+
+      {resumo.aguardando > 0 && (
+        <div className="aviso-acao">
+          <p>
+            <strong>
+              {resumo.aguardando} aluno(s) ainda não têm conta e por isso não conseguem entrar.
+            </strong>{' '}
+            Crie as contas de uma vez e entregue a senha à turma.
+          </p>
+          <button type="button" className="btn-primary btn-inline" onClick={() => setModal('contas')}>
+            Criar contas da turma
+          </button>
+        </div>
       )}
 
       {carregando && <p className="estado-vazio">Carregando…</p>}
@@ -229,17 +333,39 @@ function ProfessorAlunosView() {
                   </td>
                   <td>
                     {aluno.ativado_em ? (
-                      <span className="texto-ok">Entrou</span>
+                      <span className="texto-ok">Tem conta</span>
                     ) : (
-                      <span className="texto-pendente">Aguardando 1º acesso</span>
+                      <span className="texto-pendente">Sem conta</span>
                     )}
                   </td>
                   <td>
-                    {!aluno.ativado_em && (
-                      <button type="button" className="btn-danger" onClick={() => remover(aluno)}>
-                        Tirar
+                    <div className="card-lista__acoes">
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => {
+                          setEdicao({ ...aluno });
+                          setModal('editar');
+                        }}
+                      >
+                        Editar
                       </button>
-                    )}
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => {
+                          setSenhaForm({ aluno, senha: '' });
+                          setModal('senha');
+                        }}
+                      >
+                        {aluno.ativado_em ? 'Trocar senha' : 'Definir senha'}
+                      </button>
+                      {!aluno.ativado_em && (
+                        <button type="button" className="btn-danger" onClick={() => remover(aluno)}>
+                          Tirar
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -250,8 +376,9 @@ function ProfessorAlunosView() {
 
       {alunos.length > 0 && (
         <p className="card-lista__meta">
-          Entregue a cada aluno a matrícula dele. No primeiro acesso, ele escolhe a própria senha em
-          “Sou aluno → Ainda não tenho conta”.
+          <strong>Sem conta</strong> quer dizer que a matrícula está reservada, mas o aluno ainda não
+          consegue entrar. O aluno não cria a própria conta: quem cria é você, por “Definir senha” ou
+          pelo botão que cria as contas da turma toda.
         </p>
       )}
 
@@ -291,6 +418,22 @@ function ProfessorAlunosView() {
             />
           </div>
 
+          <div className="input-group">
+            <label htmlFor="aluno-senha">Senha inicial (opcional)</label>
+            <input
+              id="aluno-senha"
+              value={form.senha}
+              onChange={(e) => setForm({ ...form, senha: e.target.value })}
+              autoComplete="off"
+              spellCheck="false"
+              placeholder="Mínimo 6 caracteres"
+            />
+            <small className="card-lista__meta">
+              Com senha, a conta já sai pronta e o aluno só entra. Sem senha, ele cria a dele no
+              primeiro acesso, em “Ainda não tenho conta”.
+            </small>
+          </div>
+
           <div className="card-lista__acoes">
             <button type="submit" className="btn-primary" disabled={salvando}>
               {salvando ? 'Salvando…' : 'Adicionar'}
@@ -300,6 +443,125 @@ function ProfessorAlunosView() {
             </button>
           </div>
         </form>
+      </ModalShell>
+
+      {/* ------------------------------------------ contas da turma em lote */}
+      <ModalShell open={modal === 'contas'} onClose={() => setModal(null)} disabled={salvando}>
+        <form className="form-modal" onSubmit={criarContasDaTurma}>
+          <h3>Criar contas da turma</h3>
+          <p className="card-lista__meta">
+            Vou criar a conta de <strong>{resumo.aguardando}</strong> aluno(s) que ainda não têm. Quem
+            já entrou não é afetado.
+          </p>
+
+          <div className="input-group">
+            <label htmlFor="lote-senha">Senha para todos (opcional)</label>
+            <input
+              id="lote-senha"
+              value={loteSenha}
+              onChange={(e) => setLoteSenha(e.target.value)}
+              autoComplete="off"
+              spellCheck="false"
+              placeholder="Em branco = a própria matrícula vira a senha"
+            />
+            <small className="card-lista__meta">
+              Deixar em branco é o mais prático no primeiro dia: cada aluno entra com a matrícula nos
+              dois campos. Como é fraco, peça que troquem a senha depois.
+            </small>
+          </div>
+
+          <div className="card-lista__acoes">
+            <button type="submit" className="btn-primary" disabled={salvando}>
+              {salvando ? 'Criando…' : `Criar ${resumo.aguardando} conta(s)`}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setModal(null)}>
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </ModalShell>
+
+      {/* ----------------------------------------------------- editar aluno */}
+      <ModalShell open={modal === 'editar'} onClose={() => setModal(null)} disabled={salvando}>
+        {edicao && (
+          <form className="form-modal" onSubmit={salvarEdicao}>
+            <h3>Editar aluno</h3>
+
+            <div className="input-group">
+              <label htmlFor="edit-nome">Nome completo</label>
+              <input
+                id="edit-nome"
+                value={edicao.nome}
+                onChange={(e) => setEdicao({ ...edicao, nome: e.target.value })}
+              />
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="edit-matricula">Matrícula</label>
+              <input
+                id="edit-matricula"
+                value={edicao.matricula}
+                onChange={(e) => setEdicao({ ...edicao, matricula: e.target.value })}
+                autoCapitalize="none"
+                spellCheck="false"
+                disabled={Boolean(edicao.ativado_em)}
+              />
+              {edicao.ativado_em && (
+                <small className="card-lista__meta">
+                  Este aluno já entrou no app. A matrícula é o login dele, então não pode mudar —
+                  corrigir aqui o deixaria de fora sem aviso.
+                </small>
+              )}
+            </div>
+
+            <div className="card-lista__acoes">
+              <button type="submit" className="btn-primary" disabled={salvando}>
+                {salvando ? 'Salvando…' : 'Salvar'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setModal(null)}>
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
+      </ModalShell>
+
+      {/* ------------------------------------------------ definir/trocar senha */}
+      <ModalShell open={modal === 'senha'} onClose={() => setModal(null)} disabled={salvando}>
+        {senhaForm.aluno && (
+          <form className="form-modal" onSubmit={salvarSenha}>
+            <h3>{senhaForm.aluno.ativado_em ? 'Trocar senha' : 'Definir senha'}</h3>
+            <p className="card-lista__meta">
+              {senhaForm.aluno.nome} · matrícula <code>{senhaForm.aluno.matricula}</code>
+            </p>
+
+            <div className="input-group">
+              <label htmlFor="senha-aluno">Nova senha</label>
+              <input
+                id="senha-aluno"
+                value={senhaForm.senha}
+                onChange={(e) => setSenhaForm({ ...senhaForm, senha: e.target.value })}
+                autoComplete="off"
+                spellCheck="false"
+                placeholder="Mínimo 6 caracteres"
+              />
+              <small className="card-lista__meta">
+                {senhaForm.aluno.ativado_em
+                  ? 'A senha antiga deixa de valer na hora. Avise o aluno.'
+                  : 'A conta é criada agora. O aluno entra com a matrícula e esta senha, sem precisar se cadastrar.'}
+              </small>
+            </div>
+
+            <div className="card-lista__acoes">
+              <button type="submit" className="btn-primary" disabled={salvando}>
+                {salvando ? 'Salvando…' : 'Salvar senha'}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => setModal(null)}>
+                Cancelar
+              </button>
+            </div>
+          </form>
+        )}
       </ModalShell>
 
       {/* -------------------------------------------------------- turma nova */}

@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import { toast, confirmAction } from '../utils/appFeedback';
 import { formatarTempo, medalha } from '../utils/formatters';
 import { ROTULO_DIFICULDADE, penalidadeTempo } from '../utils/pontuacao';
+import { dispararMagia, tocarErro } from '../utils/magia';
 
 /**
  * Execução de uma lista (RF08–RF13).
@@ -24,6 +25,12 @@ function ExecucaoModal({ lista, execucaoId, onFechar }) {
 
   const inicioRef = useRef(null);
   const questaoAtual = questoes[indice];
+  // O efeito de abrir a questão precisa depender do ID, não do objeto: acertar
+  // reescreve o objeto da questão (para marcar `acertou`), e depender dele fazia
+  // o efeito rodar de novo e limpar `ultimoResultado`. Sem esse resultado o
+  // bloco "Próxima questão" some, e como as alternativas já estão desabilitadas
+  // pelo acerto, a tela ficava sem nenhuma saída — travada.
+  const questaoAtualId = questaoAtual?.questao_id;
 
   // ------------------------------------------------------------ carregar --
   useEffect(() => {
@@ -50,12 +57,12 @@ function ExecucaoModal({ lista, execucaoId, onFechar }) {
 
   // ------------------------------------------- abrir a questão no servidor --
   useEffect(() => {
-    if (carregando || !questaoAtual || resumo) return;
+    if (carregando || !questaoAtualId || resumo) return undefined;
     let ativo = true;
     supabase
       .rpc('exergame_abrir_questao', {
         p_execucao_id: execucaoId,
-        p_questao_id: questaoAtual.questao_id,
+        p_questao_id: questaoAtualId,
       })
       .then(({ data, error }) => {
         if (!ativo) return;
@@ -71,21 +78,27 @@ function ExecucaoModal({ lista, execucaoId, onFechar }) {
     return () => {
       ativo = false;
     };
-  }, [carregando, questaoAtual, execucaoId, resumo]);
+  }, [carregando, questaoAtualId, execucaoId, resumo]);
 
   // --------------------------------------------------------- cronômetro ---
   useEffect(() => {
-    if (carregando || resumo || !questaoAtual) return undefined;
+    if (carregando || resumo || !questaoAtualId) return undefined;
     const id = window.setInterval(() => {
       if (!inicioRef.current) return;
       setSegundos(Math.max(0, Math.floor((Date.now() - inicioRef.current) / 1000)));
     }, 250);
     return () => window.clearInterval(id);
-  }, [carregando, resumo, questaoAtual]);
+  }, [carregando, resumo, questaoAtualId]);
 
   // ---------------------------------------------------------- responder ---
-  const responder = async (alternativaId) => {
+  const responder = async (alternativaId, evento) => {
     if (enviando || !questaoAtual) return;
+    // Guarda o ponto do toque antes da chamada: é de lá que as faíscas saem, e
+    // depois do await o evento já não serve.
+    const origem = evento?.currentTarget?.getBoundingClientRect?.();
+    const ponto = origem
+      ? { x: origem.left + origem.width / 2, y: origem.top + origem.height / 2 }
+      : {};
     setEnviando(true);
     const { data, error } = await supabase.rpc('exergame_responder', {
       p_execucao_id: execucaoId,
@@ -105,9 +118,12 @@ function ExecucaoModal({ lista, execucaoId, onFechar }) {
 
     if (!resultado?.correta) {
       setErradas((prev) => [...prev, alternativaId]);
+      tocarErro();
       toast.warn('Ainda não é essa. Tente de novo!');
       return;
     }
+
+    dispararMagia({ ...ponto, peso: 1, tipo: 'acerto' });
 
     setQuestoes((prev) =>
       prev.map((q, i) =>
@@ -138,6 +154,9 @@ function ExecucaoModal({ lista, execucaoId, onFechar }) {
       return;
     }
     setResumo(Array.isArray(data) ? data[0] : data);
+    // Fim de lista é a comemoração grande: arpejo completo e faísca colorida,
+    // saindo do centro da tela em vez de um botão.
+    dispararMagia({ peso: 2, tipo: 'conclusao' });
   }, [execucaoId]);
 
   const tentarFechar = async () => {
@@ -259,7 +278,7 @@ function ExecucaoModal({ lista, execucaoId, onFechar }) {
                         acertada ? ' alternativa--certa' : ''
                       }`}
                       disabled={enviando || errada || questaoAtual.acertou}
-                      onClick={() => responder(alt.id)}
+                      onClick={(e) => responder(alt.id, e)}
                     >
                       <span className="alternativa__letra">{String.fromCharCode(65 + i)}</span>
                       <span>{alt.texto}</span>
@@ -269,14 +288,25 @@ function ExecucaoModal({ lista, execucaoId, onFechar }) {
               })}
             </ul>
 
-            {questaoAtual.acertou && ultimoResultado?.correta && (
+            {/* Basta a questão estar acertada para o botão aparecer. Amarrar isso
+                também a `ultimoResultado` deixava a tela sem saída sempre que o
+                resultado se perdia — por exemplo ao reabrir uma questão já
+                respondida, quando as alternativas já nascem desabilitadas. */}
+            {questaoAtual.acertou && (
               <div className="execucao__feedback">
-                <p>
-                  Acertou em {ultimoResultado.tentativas}{' '}
-                  {ultimoResultado.tentativas === 1 ? 'tentativa' : 'tentativas'} e{' '}
-                  {formatarTempo(ultimoResultado.tempo_seg)} —{' '}
-                  <strong>+{ultimoResultado.p_final} pontos</strong>
-                </p>
+                {ultimoResultado?.correta ? (
+                  <p>
+                    Acertou em {ultimoResultado.tentativas}{' '}
+                    {ultimoResultado.tentativas === 1 ? 'tentativa' : 'tentativas'} e{' '}
+                    {formatarTempo(ultimoResultado.tempo_seg)} —{' '}
+                    <strong>+{ultimoResultado.p_final} pontos</strong>
+                  </p>
+                ) : (
+                  <p>
+                    Você já acertou esta questão —{' '}
+                    <strong>+{questaoAtual.p_final} pontos</strong>
+                  </p>
+                )}
                 <button type="button" className="btn-primary" onClick={avancar} disabled={enviando}>
                   {questoes.some((q, i) => i > indice && !q.acertou)
                     ? 'Próxima questão'

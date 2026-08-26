@@ -239,3 +239,67 @@ O texto colado é interpretado no cliente por `utils/listaAlunos.js`, que aceita
 vírgula ou tabulação, e descarta a numeração da chamada. **O que decide o que é
 matrícula não é a posição, e sim ter um dígito** — sem essa regra, "Ana Clara
 Souza" virava matrícula "Ana" com nome "Clara Souza".
+
+## 14. Escola como raiz (multi-escola)
+
+`supabase_exergame_escolas.sql`, `supabase_exergame_rls_escolas.sql`,
+`supabase_exergame_rpc_escolas.sql`.
+
+O sistema passou a ser vendável para várias escolas, e isso mudou a pergunta que
+as policies fazem: onde era "é docente?", agora é **"é docente DESTA escola?"**.
+Sem essa troca, a professora da escola A enxergaria os alunos da escola B — dados
+de menores, entre clientes diferentes.
+
+- `exergame_escolas` é a raiz; `exergame_vinculos` liga professor↔escola em N:N
+  (dar aula em duas escolas é comum, então não daria para pôr `escola_id` no
+  profile); `exergame_disciplinas` substitui o texto livre de `listas.disciplina`.
+- `turmas` e `listas` ganharam `escola_id` **not null**. Em `listas`, `turma_id`
+  nulo significa "todas as turmas daquela escola" — sem `escola_id` isso não
+  teria fronteira.
+- Funções de apoio: `exergame_minhas_escolas()`, `exergame_na_escola(id)`,
+  `exergame_gestor_da_escola(id)`, `exergame_escola_do_aluno()`,
+  `exergame_escola_da_turma(id)`, `exergame_posso_ver_lista(id)`,
+  `exergame_posso_editar_lista(id)`.
+- O papel `gestor` deixou de ser global e passou a ser por escola.
+
+**Quatro furos que existiam antes e que este arquivo fecha** — vale conhecer
+porque qualquer policy nova pode reabri-los:
+
+1. `turmas_select` era `using (true)` **para anon**: qualquer pessoa, sem login,
+   lia as turmas de todas as escolas. Existia porque o cadastro do aluno mostrava
+   um seletor de turma — que por isso **foi removido**; a turma do aluno vem da
+   lista feita pelo professor.
+2. `profiles_select` entregava todo perfil a qualquer docente.
+3. `profiles_update_docente` deixava qualquer docente editar qualquer pessoa.
+4. `gestor` global via gabarito e resultado de todas as escolas.
+
+**Como o professor entra numa escola.** Cadastro de professor é livre outra vez
+(§12 mudou de sentido): sem escola, ele não vê nada de ninguém, então travar o
+cadastro não protegia nada e atrapalhava quem quisesse experimentar. Ao entrar
+sem vínculo, cai em `EscolaSetupView` e escolhe: criar a escola (vira gestor
+dela) ou entrar na de um colega com código gerado por `exergame_gerar_convite`.
+O convite agora autoriza **entrar nesta escola**, não "ser professor".
+
+**Ao mexer em RLS aqui, refaça o teste de isolamento:** monte duas escolas com
+dados e tente cruzar a fronteira nos dois sentidos e nos dois papéis (professor e
+aluno) — ler lista, gabarito, perfis e lista de turma alheios, renomear turma do
+outro, plantar aluno na escola do outro. É essa bateria que sustenta a venda.
+
+## 15. Comemoração do acerto
+
+`utils/magia.js` (som) + `components/EfeitoMagico.jsx` (canvas), portados do app
+Participou. O som é sintetizado com Web Audio — sem arquivo, funciona offline. O
+efeito fica montado no `App.jsx` o tempo todo: parado não desenha nem consome
+quadro, e assim não depende da tela aberta. Respeita `prefers-reduced-motion`.
+
+Três detalhes que já custaram bug:
+
+- **O canvas precisa de z-index acima do modal.** O acerto acontece dentro do
+  modal da execução (`.modal-overlay` = 10000, `.confirm-backdrop` = 10060). Com
+  o valor 70 que veio do Participou, as faíscas eram desenhadas atrás do fundo
+  escuro e não apareciam. Hoje é 10100.
+- **`ultimoToque` começa em `-Infinity`, não em 0.** `ctx.currentTime` também
+  nasce perto de zero, então com 0 o primeiro acerto era tratado como "toque
+  repetido" e saía sem o pó mágico, justo na hora que mais importa.
+- O efeito só começa ~180 ms depois do clique, porque espera a RPC de resposta.
+  Quem for medir ou capturar, mire ~430 ms.

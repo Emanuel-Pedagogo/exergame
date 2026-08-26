@@ -72,8 +72,13 @@ export function parsearListaAlunos(texto) {
 
 /** Rótulos das situações devolvidas por exergame_cadastrar_alunos. */
 export const SITUACAO_ALUNO = {
-  cadastrado: 'Cadastrado',
+  cadastrado: 'Cadastrado (aguarda 1º acesso)',
+  conta_criada: 'Cadastrado com senha — já pode entrar',
   ja_na_lista: 'Já estava na lista',
   ja_tem_conta: 'Já tem conta no app',
   sem_nome: 'Linha ignorada (sem nome)',
+  matricula_invalida: 'Matrícula inválida (sem espaços ou @)',
+  senha_curta: 'Senha muito curta (mínimo 6)',
+  erro_conta: 'Não consegui criar a conta',
+  matricula_curta_para_senha: 'Matrícula curta demais para virar senha (mínimo 6)',
 };

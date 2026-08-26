@@ -12,6 +12,8 @@ import ProfessorQuestoesView from './views/ProfessorQuestoesView';
 import ProfessorResultadosView from './views/ProfessorResultadosView';
 import ExecucaoModal from './views/ExecucaoModal';
 import PerfilPendenteView from './views/PerfilPendenteView';
+import EscolaSetupView from './views/EscolaSetupView';
+import EfeitoMagico from './components/EfeitoMagico';
 
 /**
  * Hub da aplicação. Sem React Router: a navegação é a string `currentView`,
@@ -20,6 +22,7 @@ import PerfilPendenteView from './views/PerfilPendenteView';
  */
 
 const VIEW_STORAGE_KEY = 'exergame:view';
+const ESCOLA_STORAGE_KEY = 'exergame:escola';
 
 const VIEWS_ALUNO = ['aluno-home', 'aluno-ranking', 'aluno-historico'];
 const VIEWS_DOCENTE = ['prof-listas', 'prof-questoes', 'prof-resultados', 'prof-alunos'];
@@ -41,6 +44,12 @@ function App() {
   const [listaSelecionada, setListaSelecionada] = useState(null);
   const [execucaoAberta, setExecucaoAberta] = useState(null);
   const [recarregar, setRecarregar] = useState(0);
+
+  // Escola ativa do docente. Um professor pode ter vínculo com várias escolas
+  // (dar aula em duas é comum), então tudo que ele cria precisa saber em qual
+  // delas está. O aluno não escolhe: a escola dele vem da turma.
+  const [escolas, setEscolas] = useState([]);
+  const [escolaId, setEscolaId] = useState(() => localStorage.getItem(ESCOLA_STORAGE_KEY) || '');
 
   const navigate = useCallback((viewId, contexto = null) => {
     if (contexto !== null) setListaSelecionada(contexto);
@@ -95,11 +104,47 @@ function App() {
     };
   }, [carregarProfile]);
 
+  // Escolas do docente. Os setState ficam dentro do .then() para não disparar
+  // renders em cascata a partir do efeito (react-hooks/set-state-in-effect).
+  const carregarEscolas = useCallback(
+    () =>
+      supabase
+        .from('exergame_escolas')
+        .select('id, nome, cidade, uf')
+        .order('nome')
+        .then(({ data }) => {
+          const lista = data ?? [];
+          setEscolas(lista);
+          setEscolaId((atual) => {
+            const valida = lista.some((e) => e.id === atual);
+            const escolhida = valida ? atual : (lista[0]?.id ?? '');
+            if (escolhida) localStorage.setItem(ESCOLA_STORAGE_KEY, escolhida);
+            return escolhida;
+          });
+          return lista;
+        }),
+    [],
+  );
+
+  useEffect(() => {
+    if (profile && profile.perfil !== 'aluno') carregarEscolas();
+  }, [profile, carregarEscolas]);
+
+  const trocarEscola = (id) => {
+    setEscolaId(id);
+    localStorage.setItem(ESCOLA_STORAGE_KEY, id);
+    setListaSelecionada(null);
+    setRecarregar((n) => n + 1);
+  };
+
   const sair = async () => {
     await supabase.auth.signOut();
     localStorage.removeItem(VIEW_STORAGE_KEY);
+    localStorage.removeItem(ESCOLA_STORAGE_KEY);
     setCurrentView('aluno-home');
     setListaSelecionada(null);
+    setEscolas([]);
+    setEscolaId('');
   };
 
   const abrirExecucao = (lista, execucaoId) => setExecucaoAberta({ lista, execucaoId });
@@ -134,7 +179,22 @@ function App() {
     );
   }
 
+  // Docente sem nenhuma escola não tem onde criar turma, aluno ou lista.
+  if (profile.perfil !== 'aluno' && escolas.length === 0) {
+    return (
+      <EscolaSetupView
+        nome={profile.nome}
+        onPronto={async () => {
+          const lista = await carregarEscolas();
+          if (lista.length > 0) navigate('prof-listas');
+        }}
+        onSair={sair}
+      />
+    );
+  }
+
   const ehAluno = profile.perfil === 'aluno';
+  const escolaAtiva = escolas.find((e) => e.id === escolaId) ?? null;
   const abas = ehAluno
     ? [
         { id: 'aluno-home', rotulo: 'Minhas listas' },
@@ -161,9 +221,28 @@ function App() {
             </p>
           </div>
         </div>
-        <button type="button" className="btn-secondary btn-inline" onClick={sair}>
-          Sair
-        </button>
+        <div className="app-header__acoes">
+          {!ehAluno &&
+            (escolas.length > 1 ? (
+              <select
+                className="app-header__escola"
+                aria-label="Escola ativa"
+                value={escolaId}
+                onChange={(e) => trocarEscola(e.target.value)}
+              >
+                {escolas.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.nome}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              escolaAtiva && <span className="chip">{escolaAtiva.nome}</span>
+            ))}
+          <button type="button" className="btn-secondary btn-inline" onClick={sair}>
+            Sair
+          </button>
+        </div>
       </header>
 
       <nav className="app-tabs" aria-label="Navegação principal">
@@ -198,6 +277,8 @@ function App() {
         {currentView === 'prof-listas' && (
           <ProfessorListasView
             profile={profile}
+            escolaId={escolaId}
+            key={escolaId}
             onAbrirQuestoes={(lista) => navigate('prof-questoes', lista)}
             onAbrirResultados={(lista) => navigate('prof-resultados', lista)}
           />
@@ -205,7 +286,7 @@ function App() {
         {currentView === 'prof-questoes' && (
           <ProfessorQuestoesView lista={listaSelecionada} onVoltar={() => navigate('prof-listas')} />
         )}
-        {currentView === 'prof-alunos' && <ProfessorAlunosView />}
+        {currentView === 'prof-alunos' && <ProfessorAlunosView escolaId={escolaId} key={escolaId} />}
         {currentView === 'prof-resultados' && (
           <ProfessorResultadosView profile={profile} listaInicial={listaSelecionada} />
         )}
@@ -218,6 +299,10 @@ function App() {
           onFechar={fecharExecucao}
         />
       )}
+
+      {/* Fica montado o tempo todo: parado não desenha nada nem consome quadro,
+          e assim a faísca não depende de qual tela está aberta. */}
+      <EfeitoMagico />
     </div>
   );
 }

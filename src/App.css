@@ -37,6 +37,61 @@
   color: #fff;
 }
 
+/* Faixa de chamada para ação pendente (ex.: alunos sem conta). Destaca sem
+   alarmar: é pendência de rotina, não erro. */
+.aviso-acao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid #fcd34d;
+  border-left: 4px solid #f59e0b;
+  border-radius: 10px;
+  background: #fffbeb;
+  color: #713f12;
+}
+
+.aviso-acao p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+/* Escola ativa + sair. Encolhe primeiro no celular, para o nome do professor
+   não ser espremido pelo seletor. */
+.app-header__acoes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.app-header__escola {
+  max-width: 40vw;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.app-header__escola option {
+  color: #1f2937;
+}
+
+.app-header__acoes .chip {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  max-width: 34vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-header__brand {
   display: flex;
   align-items: center;

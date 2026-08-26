@@ -36,7 +36,11 @@ Aplique os arquivos SQL na ordem, pelo SQL Editor do Supabase ou pelo MCP:
 4. `supabase_exergame_convite_professor.sql` — exige código de convite para virar
    professor (sem ele, qualquer um se cadastra como professor)
 5. `supabase_exergame_matriculas.sql` — o professor monta a lista da turma e cria turmas
-6. `supabase_exergame_seed.sql` — dados de demonstração (opcional)
+6. `supabase_exergame_escolas.sql` — escola como raiz, vínculos e disciplinas
+7. `supabase_exergame_rls_escolas.sql` — **RLS com isolamento por escola** (substitui as policies do passo 2)
+8. `supabase_exergame_rpc_escolas.sql` — criar/entrar em escola, convite por escola, turma e disciplina
+9. `supabase_exergame_alunos_senha.sql` — professor define senha do aluno e edita a lista
+10. `supabase_exergame_seed.sql` — dados de demonstração (opcional)
 
 > O seed insere as questões e suas alternativas num único comando (`with novas as
 > (insert ...)`). Isso só funciona com RLS desligada — como superusuário no SQL

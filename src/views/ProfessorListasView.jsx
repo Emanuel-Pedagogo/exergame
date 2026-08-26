@@ -3,12 +3,13 @@ import ModalShell from '../components/ModalShell';
 import { supabase } from '../supabaseClient';
 import { toast, confirmAction } from '../utils/appFeedback';
 
-const FORM_VAZIO = { id: null, titulo: '', disciplina: 'Matemática', turma_id: '', ativa: false };
+const FORM_VAZIO = { id: null, titulo: '', disciplina_id: '', turma_id: '', ativa: false };
 
-/** CRUD de listas do professor (RF04, RF16). */
-function ProfessorListasView({ profile, onAbrirQuestoes, onAbrirResultados }) {
+/** CRUD de listas do professor (RF04, RF16). Tudo dentro da escola ativa. */
+function ProfessorListasView({ profile, escolaId, onAbrirQuestoes, onAbrirResultados }) {
   const [listas, setListas] = useState([]);
   const [turmas, setTurmas] = useState([]);
+  const [disciplinas, setDisciplinas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [form, setForm] = useState(null);
   const [salvando, setSalvando] = useState(false);
@@ -18,18 +19,21 @@ function ProfessorListasView({ profile, onAbrirQuestoes, onAbrirResultados }) {
       supabase
         .from('exergame_listas')
         .select(
-          'id, titulo, disciplina, turma_id, ativa, criado_em, turma:exergame_turmas(nome), questoes:exergame_questoes(count)',
+          'id, titulo, disciplina, disciplina_id, turma_id, ativa, criado_em, turma:exergame_turmas(nome), disc:exergame_disciplinas(nome), questoes:exergame_questoes(count)',
         )
         .eq('professor_id', profile.id)
+        .eq('escola_id', escolaId)
         .order('criado_em', { ascending: false }),
-      supabase.from('exergame_turmas').select('id, nome, ano').order('nome'),
-    ]).then(([{ data: dadosListas, error }, { data: dadosTurmas }]) => {
+      supabase.from('exergame_turmas').select('id, nome, ano').eq('escola_id', escolaId).order('nome'),
+      supabase.from('exergame_disciplinas').select('id, nome').eq('escola_id', escolaId).order('nome'),
+    ]).then(([{ data: dadosListas, error }, { data: dadosTurmas }, { data: dadosDisc }]) => {
       if (error) toast.error(`Não consegui carregar as listas: ${error.message}`);
       setListas(dadosListas ?? []);
       setTurmas(dadosTurmas ?? []);
+      setDisciplinas(dadosDisc ?? []);
       setCarregando(false);
     });
-  }, [profile.id]);
+  }, [profile.id, escolaId]);
 
   useEffect(() => {
     carregar();
@@ -41,11 +45,20 @@ function ProfessorListasView({ profile, onAbrirQuestoes, onAbrirResultados }) {
       toast.warn('Informe o título da lista.');
       return;
     }
+    if (!form.disciplina_id) {
+      toast.warn('Escolha a disciplina. Se ela não estiver na lista, cadastre-a antes.');
+      return;
+    }
     setSalvando(true);
+    const disciplinaNome = disciplinas.find((d) => d.id === form.disciplina_id)?.nome ?? '';
     const payload = {
       titulo: form.titulo.trim(),
-      disciplina: form.disciplina.trim() || 'Matemática',
+      // `disciplina` (texto) fica preenchido junto com `disciplina_id` enquanto
+      // telas antigas ainda leem o texto; a fonte da verdade é o id.
+      disciplina: disciplinaNome,
+      disciplina_id: form.disciplina_id,
       turma_id: form.turma_id || null,
+      escola_id: escolaId,
       ativa: form.ativa,
       professor_id: profile.id,
     };
@@ -110,7 +123,7 @@ function ProfessorListasView({ profile, onAbrirQuestoes, onAbrirResultados }) {
         {listas.map((lista) => (
           <article key={lista.id} className="card-lista">
             <header>
-              <span className="chip">{lista.disciplina}</span>
+              <span className="chip">{lista.disc?.nome ?? lista.disciplina}</span>
               <h3>{lista.titulo}</h3>
               <p className="card-lista__meta">
                 {lista.turma?.nome ?? 'Todas as turmas'} ·{' '}
@@ -142,7 +155,7 @@ function ProfessorListasView({ profile, onAbrirQuestoes, onAbrirResultados }) {
                   setForm({
                     id: lista.id,
                     titulo: lista.titulo,
-                    disciplina: lista.disciplina,
+                    disciplina_id: lista.disciplina_id ?? '',
                     turma_id: lista.turma_id ?? '',
                     ativa: lista.ativa,
                   })
@@ -174,11 +187,52 @@ function ProfessorListasView({ profile, onAbrirQuestoes, onAbrirResultados }) {
 
             <div className="input-group">
               <label htmlFor="disciplina">Disciplina</label>
-              <input
+              <select
                 id="disciplina"
-                value={form.disciplina}
-                onChange={(e) => setForm({ ...form, disciplina: e.target.value })}
-              />
+                value={form.disciplina_id}
+                onChange={(e) => setForm({ ...form, disciplina_id: e.target.value })}
+              >
+                <option value="">Selecione a disciplina</option>
+                {disciplinas.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="disciplina-nova">Ou cadastre uma nova</label>
+              <div className="card-lista__acoes">
+                <input
+                  id="disciplina-nova"
+                  placeholder="Ex.: História"
+                  onKeyDown={async (e) => {
+                    if (e.key !== 'Enter') return;
+                    e.preventDefault();
+                    const nome = e.currentTarget.value.trim();
+                    if (!nome) return;
+                    const { data, error } = await supabase.rpc('exergame_criar_disciplina', {
+                      p_escola_id: escolaId,
+                      p_nome: nome,
+                    });
+                    if (error) {
+                      toast.error(error.message);
+                      return;
+                    }
+                    const { data: novas } = await supabase
+                      .from('exergame_disciplinas')
+                      .select('id, nome')
+                      .eq('escola_id', escolaId)
+                      .order('nome');
+                    setDisciplinas(novas ?? []);
+                    setForm((f) => ({ ...f, disciplina_id: data }));
+                    toast.success(`Disciplina "${nome}" cadastrada.`);
+                    e.currentTarget.value = '';
+                  }}
+                />
+              </div>
+              <small className="card-lista__meta">Digite e aperte Enter para cadastrar.</small>
             </div>
 
             <div className="input-group">

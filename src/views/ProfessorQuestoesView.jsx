@@ -155,9 +155,12 @@ function ProfessorQuestoesView({ lista, onVoltar }) {
   };
 
   const excluir = async (q) => {
+    // A confirmação diz qual questão e de qual lista: era genérica demais, e
+    // apagar questão da lista errada não tem como desfazer.
+    const trecho = q.enunciado.length > 90 ? `${q.enunciado.slice(0, 90)}…` : q.enunciado;
     const ok = await confirmAction({
-      title: 'Excluir questão',
-      message: 'A questão e as respostas registradas nela serão apagadas.',
+      title: `Excluir a questão ${q.ordem} de "${lista.titulo}"?`,
+      message: `"${trecho}"\n\nA questão, suas alternativas e as respostas dos alunos serão apagadas. Não dá para desfazer.`,
       confirmLabel: 'Excluir',
       danger: true,
     });
@@ -178,7 +181,15 @@ function ProfessorQuestoesView({ lista, onVoltar }) {
           <button type="button" className="link-button" onClick={onVoltar}>
             ← Voltar para as listas
           </button>
+          {/* Disciplina e turma junto do título: sem isso, duas listas de nomes
+              parecidos ficam indistinguíveis aqui dentro — e excluir questão
+              da lista errada não tem volta. */}
           <h2>{lista.titulo}</h2>
+          <p className="card-lista__meta">
+            <span className="chip">{lista.disc?.nome ?? lista.disciplina ?? 'Sem disciplina'}</span>{' '}
+            {lista.turma?.nome ? `· ${lista.turma.nome}` : '· Todas as turmas'} ·{' '}
+            {questoes.length} {questoes.length === 1 ? 'questão' : 'questões'}
+          </p>
         </div>
         <button type="button" className="btn-primary btn-inline" onClick={abrirNova}>
           Nova questão

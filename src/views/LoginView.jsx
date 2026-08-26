@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase, matriculaParaEmail, problemaNaMatricula } from '../supabaseClient';
 import { toast } from '../utils/appFeedback';
 
@@ -11,24 +11,17 @@ import { toast } from '../utils/appFeedback';
 function LoginView() {
   const [aba, setAba] = useState('aluno');
   const [modo, setModo] = useState('login'); // 'login' | 'cadastro'
-  const [turmas, setTurmas] = useState([]);
   const [enviando, setEnviando] = useState(false);
   const [form, setForm] = useState({
     nome: '',
     matricula: '',
     email: '',
     senha: '',
-    turmaId: '',
-    codigo: '',
   });
 
-  useEffect(() => {
-    supabase
-      .from('exergame_turmas')
-      .select('id, nome, ano')
-      .order('nome')
-      .then(({ data }) => setTurmas(data ?? []));
-  }, []);
+  // A lista de turmas deixou de ser pública quando o sistema virou multi-escola:
+  // mostrá-la aqui exporia as turmas de todas as escolas a quem nem tem conta.
+  // A turma do aluno agora vem do cadastro que o professor fez.
 
   const alterar = (campo) => (e) => setForm((f) => ({ ...f, [campo]: e.target.value }));
 
@@ -61,19 +54,28 @@ function LoginView() {
     setEnviando(true);
     try {
       if (modo === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password: senha,
+        });
         if (error) throw error;
         toast.success('Bem-vindo de volta!');
         return;
       }
 
-      if (!form.nome.trim()) {
-        toast.warn('Informe o nome completo.');
+      // O Supabase recusa o domínio sintético da matrícula no cadastro
+      // ("Example and test domains are currently not supported"), embora aceite
+      // esse mesmo e-mail no login. Por isso a conta do aluno é criada pelo
+      // professor, e aqui o caminho fica fechado com uma explicação em vez de
+      // um erro em inglês vindo do servidor.
+      if (ehAluno) {
+        toast.info('A conta do aluno é criada pelo professor. Peça a ele sua matrícula e senha.');
+        setModo('login');
         return;
       }
 
-      if (!ehAluno && !form.codigo.trim()) {
-        toast.warn('Informe o código de professor fornecido pela coordenação.');
+      if (!form.nome.trim()) {
+        toast.warn('Informe o nome completo.');
         return;
       }
 
@@ -88,10 +90,6 @@ function LoginView() {
             nome: form.nome.trim(),
             matricula: ehAluno ? form.matricula.trim() : null,
             perfil: ehAluno ? 'aluno' : 'professor',
-            turma_id: ehAluno ? form.turmaId || null : null,
-            // Quem valida é o gatilho no banco — mandar 'professor' daqui não
-            // basta. O gatilho apaga este campo do usuário depois de usá-lo.
-            codigo_professor: ehAluno ? null : form.codigo.trim(),
           },
         },
       });
@@ -104,28 +102,22 @@ function LoginView() {
         toast.success('Cadastro concluído. Boa sorte!');
       }
     } catch (erro) {
-      // O gatilho aborta o cadastro quando o código não vale; o Auth devolve
-      // isso como "Database error saving new user", que não diz nada ao professor.
-      const codigoRecusado =
-        !ehAluno &&
-        modo === 'cadastro' &&
-        /codigo_professor_invalido|database error/i.test(erro.message);
-
+      // O aluno cai aqui quando o professor o cadastrou mas ele ainda não fez o
+      // primeiro acesso: a matrícula existe na lista da turma, a conta não.
+      // Dizer só "matrícula incorreta" mandaria ele conferir o número à toa.
       const msg = /invalid login credentials/i.test(erro.message)
         ? ehAluno
-          ? 'Matrícula ou senha incorreta.'
+          ? 'Matrícula ou senha incorreta. Se é seu primeiro acesso, toque em "Ainda não tenho conta" para criar sua senha.'
           : 'E-mail ou senha incorreta.'
-        : codigoRecusado
-          ? 'Código de professor inválido, expirado ou já utilizado. Peça um código novo à coordenação.'
-          : /unable to validate email address/i.test(erro.message)
+        : /unable to validate email address/i.test(erro.message)
+          ? ehAluno
+            ? 'Matrícula em formato inválido. Use apenas letras e números, sem espaços.'
+            : 'E-mail em formato inválido.'
+          : /user already registered/i.test(erro.message)
             ? ehAluno
-              ? 'Matrícula em formato inválido. Use apenas letras e números, sem espaços.'
-              : 'E-mail em formato inválido.'
-            : /user already registered/i.test(erro.message)
-              ? ehAluno
-                ? 'Já existe uma conta com essa matrícula. Use "Já tenho conta — entrar".'
-                : 'Já existe uma conta com esse e-mail. Use "Já tenho conta — entrar".'
-              : erro.message;
+              ? 'Já existe uma conta com essa matrícula. Use "Já tenho conta — entrar".'
+              : 'Já existe uma conta com esse e-mail. Use "Já tenho conta — entrar".'
+            : erro.message;
       toast.error(msg);
     } finally {
       setEnviando(false);
@@ -197,32 +189,11 @@ function LoginView() {
             </div>
           )}
 
-          {modo === 'cadastro' && !ehAluno && (
-            <div className="input-group">
-              <label htmlFor="codigo">Código de professor</label>
-              <input
-                id="codigo"
-                value={form.codigo}
-                onChange={alterar('codigo')}
-                autoComplete="off"
-                spellCheck="false"
-                placeholder="Fornecido pela coordenação"
-              />
-            </div>
-          )}
-
           {modo === 'cadastro' && ehAluno && (
-            <div className="input-group">
-              <label htmlFor="turma">Turma</label>
-              <select id="turma" value={form.turmaId} onChange={alterar('turmaId')}>
-                <option value="">Selecione a turma</option>
-                {turmas.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.nome} ({t.ano})
-                  </option>
-                ))}
-              </select>
-            </div>
+            <p className="card-lista__meta">
+              Quem cria a conta do aluno é o professor. Peça a ele sua matrícula e sua senha, e entre
+              por “Já tenho conta — entrar”.
+            </p>
           )}
 
           <div className="input-group">
