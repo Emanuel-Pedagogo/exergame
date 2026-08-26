@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase, matriculaParaEmail } from '../supabaseClient';
+import { supabase, matriculaParaEmail, problemaNaMatricula } from '../supabaseClient';
 import { toast } from '../utils/appFeedback';
 
 /**
@@ -44,11 +44,15 @@ function LoginView() {
       return;
     }
 
-    const email = ehAluno ? matriculaParaEmail(form.matricula) : form.email.trim().toLowerCase();
-    if (ehAluno && !form.matricula.trim()) {
-      toast.warn('Informe a matrícula.');
-      return;
+    if (ehAluno) {
+      const problema = problemaNaMatricula(form.matricula);
+      if (problema) {
+        toast.warn(problema);
+        return;
+      }
     }
+
+    const email = ehAluno ? matriculaParaEmail(form.matricula) : form.email.trim().toLowerCase();
     if (!ehAluno && !email) {
       toast.warn('Informe o e-mail.');
       return;
@@ -113,7 +117,15 @@ function LoginView() {
           : 'E-mail ou senha incorreta.'
         : codigoRecusado
           ? 'Código de professor inválido, expirado ou já utilizado. Peça um código novo à coordenação.'
-          : erro.message;
+          : /unable to validate email address/i.test(erro.message)
+            ? ehAluno
+              ? 'Matrícula em formato inválido. Use apenas letras e números, sem espaços.'
+              : 'E-mail em formato inválido.'
+            : /user already registered/i.test(erro.message)
+              ? ehAluno
+                ? 'Já existe uma conta com essa matrícula. Use "Já tenho conta — entrar".'
+                : 'Já existe uma conta com esse e-mail. Use "Já tenho conta — entrar".'
+              : erro.message;
       toast.error(msg);
     } finally {
       setEnviando(false);
@@ -167,6 +179,9 @@ function LoginView() {
                 value={form.matricula}
                 onChange={alterar('matricula')}
                 autoComplete="username"
+                autoCapitalize="none"
+                spellCheck="false"
+                placeholder="Ex.: 20260017"
               />
             </div>
           ) : (

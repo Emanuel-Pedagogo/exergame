@@ -35,7 +35,8 @@ Aplique os arquivos SQL na ordem, pelo SQL Editor do Supabase ou pelo MCP:
 3. `supabase_exergame_rpc.sql` — RPCs de execução, pontuação e ranking
 4. `supabase_exergame_convite_professor.sql` — exige código de convite para virar
    professor (sem ele, qualquer um se cadastra como professor)
-5. `supabase_exergame_seed.sql` — dados de demonstração (opcional)
+5. `supabase_exergame_matriculas.sql` — o professor monta a lista da turma e cria turmas
+6. `supabase_exergame_seed.sql` — dados de demonstração (opcional)
 
 > O seed insere as questões e suas alternativas num único comando (`with novas as
 > (insert ...)`). Isso só funciona com RLS desligada — como superusuário no SQL

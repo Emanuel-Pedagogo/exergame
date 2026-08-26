@@ -123,6 +123,7 @@ gabarito. A correção acontece dentro de `exergame_responder()`.
 | `aluno-ranking` | `views/RankingView.jsx` | aluno |
 | `aluno-historico` | `views/HistoricoView.jsx` | aluno |
 | `prof-listas` | `views/ProfessorListasView.jsx` | professor |
+| `prof-alunos` | `views/ProfessorAlunosView.jsx` | professor |
 | `prof-questoes` | `views/ProfessorQuestoesView.jsx` | professor |
 | `prof-resultados` | `views/ProfessorResultadosView.jsx` | professor |
 | (modal) | `views/ExecucaoModal.jsx` | aluno |
@@ -157,8 +158,9 @@ estar em transações separadas.
 
 1. ~~**Cadastro de professor é aberto.**~~ Resolvido em 25/08/2026 com código de
    convite — ver §12.
-2. **Sem gestão de turmas na interface.** As turmas são inseridas via SQL; falta
-   uma tela para o gestor/professor criar turmas e mover alunos.
+2. **Gestão de turmas parcial.** O professor já cria turmas e monta a lista de
+   alunos pela tela `prof-alunos` (§13). Falta renomear/apagar turma e mover
+   aluno de uma turma para outra — isso ainda é SQL.
 3. **Banco compartilhado com o SACP.** Funciona e não custa nada, mas mistura
    dois sistemas no mesmo Postgres. Se o Exergame crescer, o caminho é um
    projeto Supabase próprio (US$ 10/mês) e a remoção dos prefixos.
@@ -201,3 +203,39 @@ Agora virar professor exige um **código de convite**
   professor mudar o perfil de qualquer um — outra razão para o portão de entrada.
 
 Emitir, conferir e revogar códigos: instruções no rodapé do arquivo SQL.
+
+## 13. O professor monta a lista da turma
+
+`supabase_exergame_matriculas.sql` + `views/ProfessorAlunosView.jsx`.
+
+**O professor não cria contas.** Criar conta no Supabase exige a chave de
+serviço, que dá acesso irrestrito ao banco e por isso não pode viver no
+navegador — colocá-la ali entregaria o banco inteiro a quem abrisse o DevTools.
+A alternativa seria uma Edge Function; optamos por não introduzir esse
+componente. O que o professor faz é **reservar a matrícula** com o nome e a
+turma certos, em `exergame_matriculas`. A conta nasce no primeiro acesso do
+aluno, que escolhe a própria senha.
+
+Consequência visível na tela: cada linha tem estado — "aguardando 1º acesso" ou
+"entrou". Serve de lista de chamada da adesão.
+
+- No primeiro acesso, o gatilho procura a matrícula na lista. Achando, o **nome e
+  a turma do pré-cadastro vencem** o que o aluno digitou: o professor escreve o
+  nome certo e sabe a turma; a criança erra. Sem pré-cadastro, vale o que o aluno
+  digitou — o auto-cadastro avulso continua permitido (decisão do usuário).
+- A mesma regra vale nos dois caminhos: gatilho e `exergame_criar_meu_perfil`.
+- `exergame_cadastrar_alunos(turma, jsonb)` aceita a turma inteira de uma vez e
+  devolve **uma linha por aluno** com o que aconteceu (`cadastrado`,
+  `ja_na_lista`, `ja_tem_conta`, `sem_nome`), para a tela explicar em vez de só
+  falhar. Matrícula em branco é gerada como ANO+sequencial, pulando as ocupadas.
+- A tabela é só para docente (RLS `for all using exergame_eh_docente()`): a lista
+  da turma não interessa ao aluno.
+- **Ambiguidade que quebrou a primeira versão:** a função devolve uma coluna
+  chamada `matricula`, então dentro dela `where matricula = ...` é ambíguo entre
+  a saída e a coluna da tabela. Toda referência precisa de alias (`mm.matricula`).
+
+O texto colado é interpretado no cliente por `utils/listaAlunos.js`, que aceita
+"nome", "matrícula, nome" e "nome, matrícula", separados por vírgula, ponto e
+vírgula ou tabulação, e descarta a numeração da chamada. **O que decide o que é
+matrícula não é a posição, e sim ter um dígito** — sem essa regra, "Ana Clara
+Souza" virava matrícula "Ana" com nome "Clara Souza".

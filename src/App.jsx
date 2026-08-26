@@ -6,6 +6,7 @@ import LoginView from './views/LoginView';
 import AlunoHomeView from './views/AlunoHomeView';
 import RankingView from './views/RankingView';
 import HistoricoView from './views/HistoricoView';
+import ProfessorAlunosView from './views/ProfessorAlunosView';
 import ProfessorListasView from './views/ProfessorListasView';
 import ProfessorQuestoesView from './views/ProfessorQuestoesView';
 import ProfessorResultadosView from './views/ProfessorResultadosView';
@@ -21,7 +22,7 @@ import PerfilPendenteView from './views/PerfilPendenteView';
 const VIEW_STORAGE_KEY = 'exergame:view';
 
 const VIEWS_ALUNO = ['aluno-home', 'aluno-ranking', 'aluno-historico'];
-const VIEWS_DOCENTE = ['prof-listas', 'prof-questoes', 'prof-resultados'];
+const VIEWS_DOCENTE = ['prof-listas', 'prof-questoes', 'prof-resultados', 'prof-alunos'];
 
 function viewInicial(perfil) {
   return perfil === 'aluno' ? 'aluno-home' : 'prof-listas';
@@ -142,6 +143,7 @@ function App() {
       ]
     : [
         { id: 'prof-listas', rotulo: 'Listas' },
+        { id: 'prof-alunos', rotulo: 'Alunos' },
         { id: 'prof-resultados', rotulo: 'Resultados' },
       ];
 
@@ -203,6 +205,7 @@ function App() {
         {currentView === 'prof-questoes' && (
           <ProfessorQuestoesView lista={listaSelecionada} onVoltar={() => navigate('prof-listas')} />
         )}
+        {currentView === 'prof-alunos' && <ProfessorAlunosView />}
         {currentView === 'prof-resultados' && (
           <ProfessorResultadosView profile={profile} listaInicial={listaSelecionada} />
         )}
