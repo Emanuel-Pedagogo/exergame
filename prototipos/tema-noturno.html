@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tema noturno</title>
+
+    <link rel="stylesheet" href="/src/App.css" />
+
+    <style>
+      /* ======================================================================
+         PROPOSTA: identidade escura, com o roxo do app virando o destaque.
+
+         Repare no tamanho deste bloco: quase tudo é redefinição de token no
+         :root. É o argumento a favor de manter cor em variável — trocar a
+         identidade do app inteiro cabe em poucas linhas, e o que sobra abaixo
+         são os pontos onde o CSS ainda tem cor fixa (candidatos a virar token).
+         ====================================================================== */
+      :root {
+        --azul: #7c9cff;
+        --roxo: #b388ff;
+        --verde: #4ade80;
+        --amarelo: #fbbf24;
+        --vermelho: #f87171;
+        --texto: #e8eaf6;
+        --texto-suave: #a5adcb;
+        --borda: #2b3155;
+        --superficie: #171a2e;
+        --fundo: #0d0f1c;
+        --sombra: 0 10px 30px rgba(0, 0, 0, 0.5);
+      }
+
+      /* Pontos com cor fixa no App.css — a lista de que vale trocar por token. */
+      body,
+      .app-shell {
+        background: var(--fundo);
+        color: var(--texto);
+      }
+      .card-lista,
+      .painel-nivel,
+      .conquista,
+      .modal-card,
+      .tabela {
+        background: var(--superficie);
+        color: var(--texto);
+        border-color: var(--borda);
+      }
+      .tabela th {
+        background: #1e2340;
+        color: var(--texto-suave);
+      }
+      .tabela td {
+        border-color: var(--borda);
+      }
+      .alternativa {
+        background: #1b1f38;
+        border-color: var(--borda);
+        color: var(--texto);
+      }
+      .alternativa:hover:not(:disabled) {
+        border-color: var(--roxo);
+        background: #232849;
+      }
+      .execucao__hud {
+        background: #1b1f38;
+        border-color: var(--borda);
+      }
+      .ganho-xp {
+        background: linear-gradient(135deg, #1e1b4b, #2e1065);
+      }
+      .medalhas-novas {
+        background: #2a2410;
+        border-color: #7c5e10;
+      }
+      .medalhas-novas__titulo {
+        color: var(--amarelo);
+      }
+      .conquista--ganha {
+        background: #2a2410;
+        border-color: #7c5e10;
+      }
+      .barra-xp {
+        background: #2b3155;
+      }
+      .chip {
+        background: #262b4d;
+        color: var(--texto);
+      }
+      .painel-destaque {
+        background: linear-gradient(135deg, #312e81, #4c1d95);
+      }
+
+      /* --------------------------- andaime do laboratório --------------- */
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      }
+      .lab {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 24px 16px 64px;
+      }
+      .lab__voltar {
+        display: inline-block;
+        margin-bottom: 16px;
+        color: var(--azul);
+      }
+      .lab h1 {
+        font-size: 1.3rem;
+        margin: 0 0 4px;
+      }
+      .lab__nota {
+        margin: 0 0 24px;
+        color: var(--texto-suave);
+        font-size: 0.9rem;
+      }
+      .lab__peca {
+        margin: 32px 0;
+        padding: 16px;
+        border: 1px dashed var(--borda);
+        border-radius: var(--raio);
+        background: var(--superficie);
+      }
+      .lab__peca > h2 {
+        margin: 0 0 12px;
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--texto-suave);
+      }
+      .lab .modal-overlay {
+        position: static;
+        background: none;
+        padding: 0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="lab">
+      <a class="lab__voltar" href="./index.html">← todos os protótipos</a>
+      <h1>Tema noturno</h1>
+      <p class="lab__nota">
+        Mesma estrutura da referência, só a paleta muda. Boa parte do trabalho foi
+        redefinir tokens; o resto do bloco de estilo aponta onde o app ainda tem
+        cor fixa.
+      </p>
+
+      <section class="lab__peca">
+        <h2>Painel do aluno</h2>
+        <section class="painel-destaque">
+          <div>
+            <p class="painel-destaque__rotulo">Sua pontuação total</p>
+            <p class="painel-destaque__valor">1350</p>
+            <p class="painel-destaque__nota">soma da melhor pontuação de cada lista concluída</p>
+          </div>
+          <span class="painel-destaque__icone" aria-hidden="true">🏆</span>
+        </section>
+
+        <section class="painel-nivel">
+          <div class="painel-nivel__topo">
+            <span class="painel-nivel__selo">Nível 3</span>
+            <span class="painel-nivel__xp">1240 XP</span>
+          </div>
+          <div class="barra-xp"><div class="barra-xp__preenchida" style="width: 48%"></div></div>
+          <p class="painel-nivel__nota">faltam <strong>260 XP</strong> para o nível 4</p>
+          <div class="painel-nivel__selos">
+            <button type="button" class="selo-info"><span aria-hidden="true">🏅</span> 7 conquistas</button>
+            <span class="selo-info"><span aria-hidden="true">🔥</span> 4 dias seguidos</span>
+          </div>
+        </section>
+      </section>
+
+      <section class="lab__peca">
+        <h2>Respondendo uma questão</h2>
+        <div class="modal-overlay">
+          <div class="modal-card" style="max-width: 720px">
+            <div class="execucao">
+              <header class="execucao__topo">
+                <div>
+                  <p class="execucao__lista">Conceito de Tecnologia</p>
+                  <p class="execucao__progresso">Questão 3 de 5 · 2 acertos</p>
+                </div>
+                <button type="button" class="execucao__fechar" aria-label="Fechar">×</button>
+              </header>
+
+              <div class="execucao__hud">
+                <span class="hud-item"><span class="hud-item__rotulo">Tempo</span><strong class="hud-item__valor hud-item__valor--alerta">23s</strong></span>
+                <span class="hud-item"><span class="hud-item__rotulo">Vale</span><strong class="hud-item__valor">150 pts</strong></span>
+                <span class="hud-item"><span class="hud-item__rotulo">Penalidade</span><strong class="hud-item__valor">−20</strong></span>
+                <span class="hud-item"><span class="hud-item__rotulo">PT parcial</span><strong class="hud-item__valor">340</strong></span>
+              </div>
+
+              <div class="execucao__questao">
+                <span class="chip chip--media">Média</span>
+                <p class="execucao__enunciado">Por que a roda é considerada uma tecnologia?</p>
+              </div>
+
+              <ul class="alternativas">
+                <li><button type="button" class="alternativa"><span class="alternativa__letra">A</span><span>Porque é fabricada com materiais modernos.</span></button></li>
+                <li><button type="button" class="alternativa alternativa--certa"><span class="alternativa__letra">B</span><span>Porque foi criada para resolver um problema: transportar cargas com menos esforço.</span></button></li>
+                <li><button type="button" class="alternativa alternativa--errada"><span class="alternativa__letra">C</span><span>Porque só pode ser usada dentro de máquinas.</span></button></li>
+                <li><button type="button" class="alternativa"><span class="alternativa__letra">D</span><span>Porque depende de energia elétrica para funcionar.</span></button></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="lab__peca">
+        <h2>Fim da lista</h2>
+        <div class="modal-overlay">
+          <div class="modal-card" style="max-width: 720px">
+            <div class="execucao">
+              <div class="execucao__resumo">
+                <p class="execucao__resumo-icone" aria-hidden="true">🎉</p>
+                <h2>Lista concluída!</h2>
+                <div class="ganho-xp">
+                  <p class="ganho-xp__valor">+700 XP</p>
+                  <p class="ganho-xp__nivel">🎉 Você chegou ao <strong>nível 2</strong>!</p>
+                </div>
+                <div class="medalhas-novas">
+                  <p class="medalhas-novas__titulo">Novas conquistas!</p>
+                  <ul>
+                    <li>
+                      <span class="medalha__icone" aria-hidden="true">👑</span>
+                      <span><strong>Nota máxima</strong><br /><small>Fez a pontuação máxima possível de uma lista.</small></span>
+                    </li>
+                  </ul>
+                </div>
+                <button type="button" class="btn-primary">Voltar para as listas</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>

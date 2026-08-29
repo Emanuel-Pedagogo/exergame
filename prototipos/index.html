@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Protótipos — Exergame</title>
+
+    <link rel="stylesheet" href="/src/App.css" />
+
+    <style>
+      body {
+        margin: 0;
+        background: var(--fundo);
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        color: var(--texto);
+      }
+      .lab {
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 40px 16px 64px;
+      }
+      .lab h1 {
+        margin: 0 0 6px;
+        font-size: 1.5rem;
+      }
+      .lab__nota {
+        margin: 0 0 28px;
+        color: var(--texto-suave);
+      }
+      .lista {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        gap: 12px;
+      }
+      .item {
+        display: block;
+        padding: 16px;
+        border: 1px solid var(--borda);
+        border-radius: var(--raio);
+        background: var(--superficie);
+        text-decoration: none;
+        color: inherit;
+      }
+      .item:hover {
+        border-color: var(--roxo);
+        box-shadow: var(--sombra);
+      }
+      .item strong {
+        display: block;
+        font-size: 1.05rem;
+        margin-bottom: 2px;
+      }
+      .item span {
+        font-size: 0.88rem;
+        color: var(--texto-suave);
+      }
+      .aviso {
+        margin-top: 32px;
+        padding: 14px 16px;
+        border: 1px solid #fcd34d;
+        border-left: 4px solid #f59e0b;
+        border-radius: var(--raio);
+        background: #fffbeb;
+        color: #713f12;
+        font-size: 0.88rem;
+      }
+      .aviso p {
+        margin: 0 0 6px;
+      }
+      .aviso p:last-child {
+        margin: 0;
+      }
+      code {
+        background: rgba(0, 0, 0, 0.06);
+        padding: 1px 5px;
+        border-radius: 5px;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="lab">
+      <h1>🎮 Protótipos do Exergame</h1>
+      <p class="lab__nota">
+        Lugar para experimentar visual e animação sem tocar no app. Cada página
+        carrega o CSS real e sobrescreve só o que propõe mudar.
+      </p>
+
+      <ul class="lista">
+        <li>
+          <a class="item" href="./referencia.html">
+            <strong>Referência — o visual de hoje</strong>
+            <span>
+              Painel do aluno, responder questão, fim de lista e conquistas, sem
+              nenhuma alteração. A régua para comparar as propostas.
+            </span>
+          </a>
+        </li>
+        <li>
+          <a class="item" href="./tema-noturno.html">
+            <strong>Tema noturno</strong>
+            <span>
+              Mesma estrutura, identidade escura. Mostra quanto dá para mudar só
+              redefinindo os tokens de cor — e onde o app ainda tem cor fixa.
+            </span>
+          </a>
+        </li>
+        <li>
+          <a class="item" href="./animacoes.html">
+            <strong>Bancada de animações</strong>
+            <span>
+              Quatro receitas de comemoração (atual, discreta, festa, só a onda)
+              para disparar e comparar no mesmo lugar.
+            </span>
+          </a>
+        </li>
+      </ul>
+
+      <div class="aviso">
+        <p><strong>Estes arquivos não entram no app.</strong></p>
+        <p>
+          Nada em <code>src/</code> importa esta pasta, e o build só empacota o que
+          parte de <code>index.html</code> da raiz. Quebrar um protótipo aqui não
+          afeta o Exergame publicado.
+        </p>
+        <p>
+          Para criar o próximo, copie <code>referencia.html</code> e escreva no
+          <code>&lt;style&gt;</code> apenas o que muda — esse bloco vira o patch
+          quando a proposta for aprovada. Detalhes no <code>README.md</code> da
+          pasta.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

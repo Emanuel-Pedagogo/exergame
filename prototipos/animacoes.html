@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bancada de animações</title>
+
+    <link rel="stylesheet" href="/src/App.css" />
+
+    <style>
+      body {
+        margin: 0;
+        background: var(--fundo);
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        color: var(--texto);
+      }
+      .lab {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 24px 16px 64px;
+      }
+      .lab__voltar {
+        display: inline-block;
+        margin-bottom: 16px;
+        color: var(--azul);
+      }
+      .lab h1 {
+        font-size: 1.3rem;
+        margin: 0 0 4px;
+      }
+      .lab__nota {
+        margin: 0 0 20px;
+        color: var(--texto-suave);
+        font-size: 0.9rem;
+      }
+      .bancada {
+        display: grid;
+        gap: 12px;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        margin-bottom: 24px;
+      }
+      .receita {
+        padding: 12px;
+        border: 1px solid var(--borda);
+        border-radius: var(--raio);
+        background: var(--superficie);
+      }
+      .receita h3 {
+        margin: 0 0 4px;
+        font-size: 0.95rem;
+      }
+      .receita p {
+        margin: 0 0 10px;
+        font-size: 0.82rem;
+        color: var(--texto-suave);
+      }
+      .palco {
+        position: relative;
+        height: 320px;
+        border-radius: var(--raio);
+        overflow: hidden;
+        background: #1e1b4b;
+        display: grid;
+        place-items: center;
+      }
+      /* O canvas cobre o palco. No app ele é fixo na tela inteira, com
+         z-index 10100 para ficar acima do modal (ver CONTEXTO §20). */
+      #tela {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .alvo {
+        position: relative;
+        z-index: 1;
+        padding: 14px 22px;
+        border-radius: 999px;
+        background: #fff;
+        color: #1e1b4b;
+        font-weight: 700;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+      }
+      .medidor {
+        margin-top: 10px;
+        font-size: 0.82rem;
+        color: var(--texto-suave);
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="lab">
+      <a class="lab__voltar" href="./index.html">← todos os protótipos</a>
+      <h1>Bancada de animações</h1>
+      <p class="lab__nota">
+        Cada receita é um conjunto de números. Clique numa e depois no alvo para
+        ver o efeito sair de onde foi tocado, como acontece ao acertar a questão.
+        Para propor uma nova, copie um objeto de <code>RECEITAS</code> e ajuste.
+      </p>
+
+      <div class="bancada" id="bancada"></div>
+
+      <div class="palco">
+        <canvas id="tela"></canvas>
+        <button class="alvo" id="alvo" type="button">Acertei!</button>
+      </div>
+      <p class="medidor" id="medidor">—</p>
+    </div>
+
+    <script type="module">
+      /* As receitas são o que muda entre uma proposta e outra. A do app hoje é
+         a "atual"; as outras existem para comparar caminhos diferentes:
+         mais discreto, mais festivo, e um sem partícula nenhuma. */
+      const RECEITAS = {
+        atual: {
+          nome: 'Atual (do app)',
+          descricao: 'Confete colorido + dois anéis + poeira. O que está publicado.',
+          faiscas: 90,
+          confete: 40,
+          poeira: 45,
+          cores: ['#ffd166', '#4cc9f0', '#57e389', '#f72585', '#b5179e', '#ffea00', '#ff8fab'],
+          aneis: 2,
+          clarao: 0.9,
+          velocidade: [160, 720],
+          tamanho: [2.4, 7],
+        },
+        discreto: {
+          nome: 'Discreto',
+          descricao: 'Poucas faíscas douradas, sem confete. Menos disputa com o texto.',
+          faiscas: 26,
+          confete: 0,
+          poeira: 10,
+          cores: ['#ffd166', '#ffe9a8', '#fff4d6'],
+          aneis: 1,
+          clarao: 0.4,
+          velocidade: [80, 280],
+          tamanho: [1.4, 3.4],
+        },
+        festa: {
+          nome: 'Festa',
+          descricao: 'Muito confete caindo, anéis largos. Comemoração de fim de lista.',
+          faiscas: 140,
+          confete: 90,
+          poeira: 60,
+          cores: ['#ffd166', '#4cc9f0', '#57e389', '#f72585', '#7209b7', '#ffea00', '#3a86ff'],
+          aneis: 3,
+          clarao: 1.2,
+          velocidade: [200, 900],
+          tamanho: [3, 9],
+        },
+        soOnda: {
+          nome: 'Só a onda',
+          descricao: 'Nenhuma partícula: apenas anéis e clarão. Mais sóbrio, quase nada de custo.',
+          faiscas: 0,
+          confete: 0,
+          poeira: 0,
+          cores: ['#ffd166'],
+          aneis: 3,
+          clarao: 1.1,
+          velocidade: [0, 0],
+          tamanho: [0, 0],
+        },
+      };
+
+      let receita = RECEITAS.atual;
+
+      const bancada = document.getElementById('bancada');
+      for (const [chave, r] of Object.entries(RECEITAS)) {
+        const div = document.createElement('div');
+        div.className = 'receita';
+        div.innerHTML = `<h3>${r.nome}</h3><p>${r.descricao}</p>`;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'btn-secondary';
+        b.textContent = 'Usar esta';
+        b.onclick = () => {
+          receita = RECEITAS[chave];
+          document.getElementById('medidor').textContent = `receita: ${r.nome}`;
+        };
+        div.appendChild(b);
+        bancada.appendChild(div);
+      }
+
+      // ---------------------------------------------------------- desenho --
+      const tela = document.getElementById('tela');
+      const pincel = tela.getContext('2d');
+      let particulas = [];
+      let aneis = [];
+      let clarao = 0;
+      let rodando = false;
+
+      function medir() {
+        const r = tela.parentElement.getBoundingClientRect();
+        const escala = Math.min(window.devicePixelRatio || 1, 2);
+        tela.width = r.width * escala;
+        tela.height = r.height * escala;
+        tela.style.width = `${r.width}px`;
+        tela.style.height = `${r.height}px`;
+        pincel.setTransform(escala, 0, 0, escala, 0, 0);
+        return r;
+      }
+      let caixa = medir();
+      window.addEventListener('resize', () => {
+        caixa = medir();
+      });
+
+      const entre = (a, b) => a + Math.random() * (b - a);
+
+      function disparar(x, y) {
+        const cor = () => receita.cores[Math.floor(Math.random() * receita.cores.length)];
+
+        for (let i = 0; i < receita.faiscas; i++) {
+          const ang = entre(0, Math.PI * 2);
+          const vel = entre(...receita.velocidade);
+          const dur = entre(0.7, 1.4);
+          particulas.push({
+            x, y,
+            vx: Math.cos(ang) * vel, vy: Math.sin(ang) * vel,
+            g: entre(320, 640), t: entre(...receita.tamanho),
+            cor: cor(), vida: dur, dur, cintila: false,
+          });
+        }
+        for (let i = 0; i < receita.confete; i++) {
+          const dur = entre(1.1, 1.9);
+          particulas.push({
+            x: entre(0, caixa.width), y: entre(-40, caixa.height * 0.25),
+            vx: entre(-60, 60), vy: entre(120, 300),
+            g: entre(60, 160), t: entre(2, 5),
+            cor: cor(), vida: dur, dur, cintila: false,
+          });
+        }
+        for (let i = 0; i < receita.poeira; i++) {
+          const dur = entre(0.9, 1.7);
+          particulas.push({
+            x: entre(0, caixa.width), y: entre(0, caixa.height),
+            vx: entre(-36, 36), vy: entre(-90, -22),
+            g: entre(-30, 20), t: entre(1.6, 3.6),
+            cor: cor(), vida: dur, dur, cintila: true,
+          });
+        }
+        for (let i = 0; i < receita.aneis; i++) {
+          aneis.push({
+            x, y,
+            raio: entre(180, 300) + i * 90,
+            esp: 6 - i * 1.5,
+            vida: 0.6 + i * 0.12,
+            dur: 0.6 + i * 0.12,
+            cor: receita.cores[i % receita.cores.length],
+          });
+        }
+        clarao = Math.min(1.4, clarao + receita.clarao);
+
+        if (!rodando) {
+          rodando = true;
+          requestAnimationFrame(quadro);
+        }
+      }
+
+      let antes = 0;
+      function quadro(agora) {
+        const passo = antes ? Math.min((agora - antes) / 1000, 0.05) : 0.016;
+        antes = agora;
+        pincel.clearRect(0, 0, caixa.width, caixa.height);
+
+        if (clarao > 0) {
+          clarao = Math.max(0, clarao - passo * 3.2);
+          const g = pincel.createRadialGradient(
+            caixa.width / 2, caixa.height / 2, 0,
+            caixa.width / 2, caixa.height / 2, Math.max(caixa.width, caixa.height) * 0.75,
+          );
+          g.addColorStop(0, `rgba(255, 213, 120, ${0.3 * clarao})`);
+          g.addColorStop(1, 'rgba(255, 213, 120, 0)');
+          pincel.fillStyle = g;
+          pincel.fillRect(0, 0, caixa.width, caixa.height);
+        }
+
+        pincel.globalCompositeOperation = 'lighter';
+
+        aneis = aneis.filter((a) => {
+          a.vida -= passo;
+          if (a.vida <= 0) return false;
+          const p = 1 - a.vida / a.dur;
+          pincel.beginPath();
+          pincel.arc(a.x, a.y, a.raio * (1 - Math.pow(1 - p, 3)), 0, Math.PI * 2);
+          pincel.strokeStyle = a.cor;
+          pincel.globalAlpha = 0.75 * (1 - p);
+          pincel.lineWidth = a.esp * (1 - p * 0.7);
+          pincel.stroke();
+          pincel.globalAlpha = 1;
+          return true;
+        });
+
+        particulas = particulas.filter((p) => {
+          p.vida -= passo;
+          if (p.vida <= 0) return false;
+          p.vx *= 0.985;
+          p.vy = p.vy * 0.985 + p.g * passo;
+          p.x += p.vx * passo;
+          p.y += p.vy * passo;
+          const resta = p.vida / p.dur;
+          pincel.globalAlpha = Math.min(1, resta * 1.6) * (p.cintila ? 0.55 + 0.45 * Math.sin(agora / 90) : 1);
+          pincel.fillStyle = p.cor;
+          pincel.beginPath();
+          pincel.arc(p.x, p.y, p.t * (0.4 + resta * 0.6), 0, Math.PI * 2);
+          pincel.fill();
+          pincel.globalAlpha = 1;
+          return true;
+        });
+
+        pincel.globalCompositeOperation = 'source-over';
+
+        document.getElementById('medidor').textContent =
+          `receita: ${receita.nome} · ${particulas.length} partículas na tela`;
+
+        if (!particulas.length && !aneis.length && clarao <= 0) {
+          rodando = false;
+          antes = 0;
+          pincel.clearRect(0, 0, caixa.width, caixa.height);
+          return;
+        }
+        requestAnimationFrame(quadro);
+      }
+
+      document.getElementById('alvo').addEventListener('click', (e) => {
+        const r = tela.getBoundingClientRect();
+        disparar(e.clientX - r.left, e.clientY - r.top);
+      });
+    </script>
+  </body>
+</html>

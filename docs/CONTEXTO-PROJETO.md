@@ -450,7 +450,16 @@ mitigação, a confirmação de exclusão passou a citar questão e lista pelo n
 o cabeçalho da tela ganhou disciplina e turma. **Se o relato voltar, peça o passo
 a passo exato antes de mexer no código.**
 
-## 20. Guia para mexer no visual
+## 20. Protótipos visuais (e o guia de estilo)
+
+**Experimentar visual não se faz mexendo no app.** Para isso existe a pasta
+`prototipos/` — páginas soltas que carregam o CSS real e sobrescrevem só o que
+propõem mudar, sem serem importadas por `src/` nem entrarem no build. Abra com
+o dev server em `/prototipos/index.html`. O `README.md` de lá explica como criar
+uma variação nova; o bloco `<style>` de cada protótipo é, por construção, o
+patch a aplicar em `src/App.css` quando a proposta for aprovada.
+
+O guia abaixo vale tanto para prototipar quanto para aplicar o que foi aprovado.
 
 Não há framework de CSS. Tudo vive em `src/App.css` (~1.200 linhas), organizado
 em seções comentadas — `botões`, `campos`, `login`, `painel aluno`, `chips`,
@@ -505,8 +514,10 @@ começa ~180 ms depois do clique (espera a RPC); capture perto de 430 ms.
 
 Em ordem do que o usuário sinalizou querer:
 
-1. **Trabalho visual** — o motivo desta parada. Nada bloqueia: é CSS e
-   componentes, sem dependência de banco.
+1. **Trabalho visual, via protótipos** (§20). O usuário não quer alterar o que
+   já funciona: a ideia é propor visuais e animações em `prototipos/` e só
+   depois aplicar o que for aprovado. Nada bloqueia — é CSS, sem dependência de
+   banco.
 2. **Imagens no enunciado e nas alternativas** (§18) — pedido explícito, ainda
    não feito. Exige bucket próprio no Storage, colunas novas, upload na edição e
    exibição na execução.
