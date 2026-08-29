@@ -153,10 +153,18 @@ function ExecucaoModal({ lista, execucaoId, onFechar }) {
       toast.error(`Não consegui finalizar: ${error.message}`);
       return;
     }
-    setResumo(Array.isArray(data) ? data[0] : data);
+    const fim = Array.isArray(data) ? data[0] : data;
+    setResumo(fim);
+
     // Fim de lista é a comemoração grande: arpejo completo e faísca colorida,
     // saindo do centro da tela em vez de um botão.
     dispararMagia({ peso: 2, tipo: 'conclusao' });
+
+    // Subir de nível ou ganhar medalha rende uma segunda salva, logo depois —
+    // separada para o aluno perceber que aconteceu algo além de terminar.
+    if (fim?.subiu_de_nivel || (fim?.conquistas ?? []).length > 0) {
+      window.setTimeout(() => dispararMagia({ peso: 2, tipo: 'conclusao' }), 650);
+    }
   }, [execucaoId]);
 
   const tentarFechar = async () => {
@@ -223,6 +231,42 @@ function ExecucaoModal({ lista, execucaoId, onFechar }) {
                 <strong>{resumo.posicao ? medalha(resumo.posicao) : '—'}</strong>
               </div>
             </div>
+            {resumo.xp_ganho > 0 && (
+              <div className="ganho-xp">
+                <p className="ganho-xp__valor">+{resumo.xp_ganho} XP</p>
+                {resumo.subiu_de_nivel ? (
+                  <p className="ganho-xp__nivel">
+                    🎉 Você chegou ao <strong>nível {resumo.nivel}</strong>!
+                  </p>
+                ) : (
+                  <p className="ganho-xp__nivel">
+                    Nível {resumo.nivel} · faltam{' '}
+                    <strong>{500 - (resumo.xp_total % 500)} XP</strong> para o próximo
+                  </p>
+                )}
+              </div>
+            )}
+
+            {(resumo.conquistas ?? []).length > 0 && (
+              <div className="medalhas-novas">
+                <p className="medalhas-novas__titulo">
+                  {resumo.conquistas.length === 1 ? 'Nova conquista!' : 'Novas conquistas!'}
+                </p>
+                <ul>
+                  {resumo.conquistas.map((c) => (
+                    <li key={c.slug}>
+                      <span className="medalha__icone" aria-hidden="true">{c.icone}</span>
+                      <span>
+                        <strong>{c.titulo}</strong>
+                        <br />
+                        <small>{c.descricao}</small>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <p className="execucao__resumo-nota">
               {resumo.posicao === 1
                 ? 'Você está em primeiro lugar nesta lista!'

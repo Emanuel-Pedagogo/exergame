@@ -6,6 +6,7 @@ import LoginView from './views/LoginView';
 import AlunoHomeView from './views/AlunoHomeView';
 import RankingView from './views/RankingView';
 import HistoricoView from './views/HistoricoView';
+import ConquistasView from './views/ConquistasView';
 import ProfessorAlunosView from './views/ProfessorAlunosView';
 import ProfessorListasView from './views/ProfessorListasView';
 import ProfessorQuestoesView from './views/ProfessorQuestoesView';
@@ -24,7 +25,7 @@ import EfeitoMagico from './components/EfeitoMagico';
 const VIEW_STORAGE_KEY = 'exergame:view';
 const ESCOLA_STORAGE_KEY = 'exergame:escola';
 
-const VIEWS_ALUNO = ['aluno-home', 'aluno-ranking', 'aluno-historico'];
+const VIEWS_ALUNO = ['aluno-home', 'aluno-ranking', 'aluno-historico', 'aluno-conquistas'];
 const VIEWS_DOCENTE = ['prof-listas', 'prof-questoes', 'prof-resultados', 'prof-alunos'];
 
 function viewInicial(perfil) {
@@ -198,6 +199,7 @@ function App() {
   const abas = ehAluno
     ? [
         { id: 'aluno-home', rotulo: 'Minhas listas' },
+        { id: 'aluno-conquistas', rotulo: 'Conquistas' },
         { id: 'aluno-ranking', rotulo: 'Ranking' },
         { id: 'aluno-historico', rotulo: 'Histórico' },
       ]
@@ -266,8 +268,10 @@ function App() {
             recarregar={recarregar}
             onJogar={abrirExecucao}
             onVerRanking={(lista) => navigate('aluno-ranking', lista)}
+            onVerConquistas={() => navigate('aluno-conquistas')}
           />
         )}
+        {currentView === 'aluno-conquistas' && <ConquistasView key={recarregar} />}
         {currentView === 'aluno-ranking' && (
           <RankingView profile={profile} listaInicial={listaSelecionada} />
         )}

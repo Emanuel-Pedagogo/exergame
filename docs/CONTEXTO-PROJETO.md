@@ -120,6 +120,7 @@ gabarito. A correção acontece dentro de `exergame_responder()`.
 | (sem sessão) | `views/LoginView.jsx` | — |
 | (sessão sem perfil) | `views/PerfilPendenteView.jsx` | — |
 | `aluno-home` | `views/AlunoHomeView.jsx` | aluno |
+| `aluno-conquistas` | `views/ConquistasView.jsx` | aluno |
 | `aluno-ranking` | `views/RankingView.jsx` | aluno |
 | `aluno-historico` | `views/HistoricoView.jsx` | aluno |
 | `prof-listas` | `views/ProfessorListasView.jsx` | professor |
@@ -303,3 +304,44 @@ Três detalhes que já custaram bug:
   repetido" e saía sem o pó mágico, justo na hora que mais importa.
 - O efeito só começa ~180 ms depois do clique, porque espera a RPC de resposta.
   Quem for medir ou capturar, mire ~430 ms.
+
+## 16. XP, nível, sequência e conquistas
+
+`supabase_exergame_gamificacao.sql` + `views/ConquistasView.jsx`.
+
+Camada trazida do app Karaokê de Leitura. Convivem duas moedas, e a diferença
+importa: **PT** é a pontuação de *uma execução* e alimenta o ranking daquela
+lista; **XP** é acumulado, nunca zera, e define nível, sequência e conquistas.
+
+**Por que o XP não é o PT de toda execução.** No Karaokê, reler o mesmo texto é
+bom e cada leitura vale XP cheio. Aqui o aluno decora as respostas: refazer
+renderia XP cheio para sempre, e o ranking passaria a medir repetição mecânica,
+não aprendizado. Então:
+
+```
+1ª conclusão da lista .... XP = PT inteiro
+refazer .................. XP = 20% do PT
++ bônus de superação ..... XP = quanto passou do próprio recorde
+```
+
+Repetir continua valendo — mais ainda para melhorar (quem sobe de 500 para 700
+ganha 340; quem repete os mesmos 700 ganha 140), sem virar atalho.
+
+- Nível: 500 XP cada, `exergame_nivel_do_xp()` — mesma curva do Karaokê.
+- Sequência: dias seguidos com pelo menos uma lista concluída, no fuso de
+  São Paulo. Jogar duas vezes no mesmo dia não conta duas.
+- 12 conquistas em 4 categorias (desempenho, velocidade, constância, superação),
+  concedidas dentro de `exergame_finalizar_execucao`, que devolve as novas para
+  a tela comemorar na hora.
+- `exergame_conquistas_aluno` **não tem policy de escrita**: quem concede é a
+  RPC `SECURITY DEFINER`. Um insert vindo do navegador não passa — mesma regra
+  que protege a pontuação.
+- O catálogo é legível por qualquer autenticado de propósito: a tela mostra as
+  bloqueadas em cinza, e é isso que dá o que perseguir.
+- `exergame_ranking_xp(turma)` é o ranking geral; `exergame_ranking(lista)`
+  continua sendo o da lista. O docente só enxerga turma de escola em que tem
+  vínculo — senão o ranking viraria porta lateral para ver alunos de outra escola.
+
+Ao mexer em `exergame_finalizar_execucao`, lembre que o retorno cresceu (xp,
+nível, conquistas): o Postgres não deixa `create or replace` mudar o tipo de
+retorno, é preciso `drop function` antes.

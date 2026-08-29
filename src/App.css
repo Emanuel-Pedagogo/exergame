@@ -37,6 +37,182 @@
   color: #fff;
 }
 
+/* ------------------------------------------------- XP, nível, conquistas -- */
+.painel-nivel {
+  margin: 12px 0 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.painel-nivel__topo {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.painel-nivel__selo {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--roxo, #5b21b6);
+}
+
+.painel-nivel__xp {
+  font-variant-numeric: tabular-nums;
+  color: #475569;
+  font-size: 0.9rem;
+}
+
+.barra-xp {
+  height: 12px;
+  margin: 8px 0 6px;
+  border-radius: 999px;
+  background: #ede9fe;
+  overflow: hidden;
+}
+
+.barra-xp__preenchida {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--azul, #2563eb), var(--roxo, #7c3aed));
+  transition: width 0.5s ease;
+}
+
+.painel-nivel__nota {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.painel-nivel__selos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.selo-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  font: inherit;
+  font-size: 0.82rem;
+  color: #334155;
+}
+
+button.selo-info {
+  cursor: pointer;
+}
+
+button.selo-info:hover {
+  border-color: var(--roxo, #7c3aed);
+}
+
+/* Ganho de XP no fim da lista */
+.ganho-xp {
+  margin: 10px 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #eef2ff, #faf5ff);
+}
+
+.ganho-xp__valor {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--roxo, #7c3aed);
+}
+
+.ganho-xp__nivel {
+  margin: 2px 0 0;
+  font-size: 0.88rem;
+  color: #475569;
+}
+
+.medalhas-novas {
+  margin: 10px 0;
+  padding: 12px;
+  border: 1px solid #fcd34d;
+  border-radius: 12px;
+  background: #fffbeb;
+  text-align: left;
+}
+
+.medalhas-novas__titulo {
+  margin: 0 0 8px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.medalhas-novas ul,
+.lista-conquistas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.medalhas-novas li,
+.conquista {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.medalha__icone,
+.conquista__icone {
+  font-size: 1.7rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.grupo-conquistas {
+  margin: 16px 0;
+}
+
+.grupo-conquistas__titulo {
+  margin: 0 0 8px;
+  font-size: 0.92rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+
+.conquista {
+  padding: 10px 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.conquista p {
+  margin: 2px 0 0;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.conquista--ganha {
+  border-color: #fcd34d;
+  background: #fffbeb;
+}
+
+/* Bloqueada aparece esmaecida, mas com o texto legível: é ela que mostra o que
+   ainda dá para perseguir. */
+.conquista--bloqueada {
+  opacity: 0.75;
+}
+
+.conquista--bloqueada strong {
+  color: #64748b;
+}
+
 /* Faixa de chamada para ação pendente (ex.: alunos sem conta). Destaca sem
    alarmar: é pendência de rotina, não erro. */
 .aviso-acao {

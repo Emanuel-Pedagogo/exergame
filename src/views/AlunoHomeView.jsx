@@ -4,20 +4,34 @@ import { toast } from '../utils/appFeedback';
 import { formatarData } from '../utils/formatters';
 
 /** Tela inicial do aluno (RF07): listas disponíveis, pontuação e atalho de ranking. */
-function AlunoHomeView({ profile, recarregar, onJogar, onVerRanking }) {
+function AlunoHomeView({ profile, recarregar, onJogar, onVerRanking, onVerConquistas }) {
   const [listas, setListas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [iniciando, setIniciando] = useState(null);
+  const [progresso, setProgresso] = useState(null);
 
   // Estilo .then em vez de async/await: o estado só muda dentro do callback,
   // nunca de forma síncrona no corpo do efeito (react-hooks/set-state-in-effect).
   const carregar = useCallback(() => {
-    supabase.rpc('exergame_listas_aluno').then(({ data, error }) => {
+    Promise.all([
+      supabase.rpc('exergame_listas_aluno'),
+      // XP, nível e sequência vêm do próprio perfil; medalhas, da contagem.
+      supabase
+        .from('exergame_profiles')
+        .select('xp, nivel, sequencia_dias')
+        .eq('id', profile.id)
+        .maybeSingle(),
+      supabase
+        .from('exergame_conquistas_aluno')
+        .select('conquista_slug', { count: 'exact', head: true })
+        .eq('aluno_id', profile.id),
+    ]).then(([{ data, error }, { data: perfil }, { count }]) => {
       if (error) toast.error(`Não consegui carregar as listas: ${error.message}`);
       setListas(data ?? []);
+      setProgresso(perfil ? { ...perfil, medalhas: count ?? 0 } : null);
       setCarregando(false);
     });
-  }, []);
+  }, [profile.id]);
 
   useEffect(() => {
     carregar();
@@ -50,6 +64,43 @@ function AlunoHomeView({ profile, recarregar, onJogar, onVerRanking }) {
         </div>
         <span className="painel-destaque__icone" aria-hidden="true">🏆</span>
       </section>
+
+      {progresso && (
+        <section className="painel-nivel">
+          <div className="painel-nivel__topo">
+            <span className="painel-nivel__selo">Nível {progresso.nivel}</span>
+            <span className="painel-nivel__xp">{progresso.xp} XP</span>
+          </div>
+
+          {/* 500 XP por nível; a barra mostra o quanto falta para o próximo. */}
+          <div
+            className="barra-xp"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={500}
+            aria-valuenow={progresso.xp % 500}
+            aria-label={`Progresso para o nível ${progresso.nivel + 1}`}
+          >
+            <div className="barra-xp__preenchida" style={{ width: `${((progresso.xp % 500) / 500) * 100}%` }} />
+          </div>
+          <p className="painel-nivel__nota">
+            faltam <strong>{500 - (progresso.xp % 500)} XP</strong> para o nível {progresso.nivel + 1}
+          </p>
+
+          <div className="painel-nivel__selos">
+            <button type="button" className="selo-info" onClick={onVerConquistas}>
+              <span aria-hidden="true">🏅</span> {progresso.medalhas} conquista
+              {progresso.medalhas === 1 ? '' : 's'}
+            </button>
+            <span className="selo-info">
+              <span aria-hidden="true">🔥</span>{' '}
+              {progresso.sequencia_dias === 1
+                ? '1 dia seguido'
+                : `${progresso.sequencia_dias} dias seguidos`}
+            </span>
+          </div>
+        </section>
+      )}
 
       {carregando && <p className="estado-vazio">Carregando listas…</p>}
 
