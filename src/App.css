@@ -37,6 +37,11 @@
   color: #fff;
 }
 
+/* Linha da prévia de importação que ainda precisa de conserto. */
+.linha--alerta td {
+  background: #fffbeb;
+}
+
 /* ------------------------------------------------- XP, nível, conquistas -- */
 .painel-nivel {
   margin: 12px 0 16px;

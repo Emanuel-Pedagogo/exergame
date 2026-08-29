@@ -345,3 +345,75 @@ ganha 340; quem repete os mesmos 700 ganha 140), sem virar atalho.
 Ao mexer em `exergame_finalizar_execucao`, lembre que o retorno cresceu (xp,
 nível, conquistas): o Postgres não deixa `create or replace` mudar o tipo de
 retorno, é preciso `drop function` antes.
+
+## 17. Importação de questões em lote
+
+`utils/importarQuestoes.js` (interpretador) + `exergame_importar_questoes` (RPC).
+
+Cadastrar questão por questão era o gargalo do professor: ele já tem a prova
+escrita em algum lugar e precisava redigitar tudo. Agora cola o bloco inteiro —
+ou escolhe um `.txt` — e o app monta enunciado, alternativas e gabarito.
+
+Formato aceito (o que mais aparece em prova de escola):
+
+```
+1. Qual é a capital do Brasil?
+a) São Paulo
+*b) Brasília
+c) Rio de Janeiro
+d) Salvador
+
+2. [média] Quanto é 7 x 8?
+a) 54
+b) 56 *
+```
+
+- Correta marcada com `*`, `#`, `(x)` ou `[x]`, antes da letra ou no fim da
+  linha; também aceita `(correta)`.
+- Numeração flexível: `1.`, `1)`, `Questão 1:`, `(a)`, `A.`, `b -`.
+- Dificuldade opcional entre colchetes logo após o número. Sem ela, entra como
+  fácil. Um colchete que **não** seja dificuldade (uma fórmula, por exemplo)
+  fica no enunciado.
+- Enunciado e alternativa podem ocupar várias linhas — a continuação é juntada.
+
+**O que o interpretador não faz de propósito:** se nenhuma alternativa vier
+marcada, a questão volta com aviso em vez de escolher uma. Chutar o gabarito
+seria pior do que pedir a correção — o erro só apareceria quando o aluno
+perdesse ponto respondendo certo.
+
+A tela mostra uma prévia a cada tecla (quantas prontas, qual é a resposta de
+cada uma, o que está faltando) e só habilita a importação das prontas.
+
+**Duas armadilhas resolvidas, ambas cobertas por teste:**
+
+1. Alternativa que começa com número (`a) 54`) fazia um interpretador ingênuo
+   abrir questão nova no meio da lista. Aqui `1.` só abre questão quando a linha
+   não é alternativa da questão corrente.
+2. A marca de correta pode estar na linha de *continuação* da alternativa, não
+   na que a abriu — sem tratar isso, o `*` virava parte do texto da resposta.
+
+A gravação é uma RPC, não inserts do cliente, por dois motivos: a policy de
+`exergame_alternativas` recusa questão e alternativas no mesmo comando (§13), e
+um lote de 20 questões viraria dezenas de idas ao servidor, cada uma podendo
+falhar no meio e deixar a lista incompleta.
+
+## 18. Ideias registradas (ainda não feitas)
+
+Pedidos do usuário anotados para não se perderem:
+
+- **Imagens no enunciado e nas alternativas.** Diversificaria muito o conteúdo
+  (figuras, mapas, gráficos). Exige bucket no Supabase Storage — hoje o projeto
+  tem só buckets do SACP (`agenda-arquivos`, `sondagens-anexos`, …), nenhum do
+  Exergame —, colunas de imagem em `exergame_questoes` e `exergame_alternativas`,
+  upload na tela de edição e exibição na execução. Note que a importação por
+  texto não carrega imagem: ela entra depois, editando a questão.
+- **Importar de Word (.docx).** Dá para ler no navegador com `mammoth` (~50 KB),
+  sem servidor. É o formato mais provável do material que o professor já tem.
+- **Importar de PDF.** Possível com `pdf.js`, mas pesado (~300 KB) e frágil: em
+  PDF de duas colunas ou digitalizado o texto vem fora de ordem, e aí a
+  importação erra silenciosamente. Se entrar, precisa de conferência obrigatória
+  na prévia antes de gravar.
+- **IA para interpretar arquivo em qualquer formato.** O Karaokê de Leitura já
+  usa Gemini (`src/lib/gemini-text.ts`), então há caminho pronto. Aceitaria
+  material bagunçado, mas custa por uso, exige chave de API e pode errar — o
+  fluxo teria que manter a prévia com conferência, nunca gravar direto.

@@ -3,6 +3,7 @@ import ModalShell from '../components/ModalShell';
 import { supabase } from '../supabaseClient';
 import { toast, confirmAction } from '../utils/appFeedback';
 import { ROTULO_DIFICULDADE, X_POR_DIFICULDADE } from '../utils/pontuacao';
+import { parsearQuestoes, questoesValidas, EXEMPLO_IMPORTACAO } from '../utils/importarQuestoes';
 
 const ALTERNATIVAS_PADRAO = [
   { texto: '', correta: true },
@@ -28,6 +29,8 @@ function ProfessorQuestoesView({ lista, onVoltar }) {
   const [carregando, setCarregando] = useState(true);
   const [form, setForm] = useState(null);
   const [salvando, setSalvando] = useState(false);
+  const [importando, setImportando] = useState(false);
+  const [texto, setTexto] = useState('');
 
   const carregar = useCallback(() => {
     if (!lista) return;
@@ -61,6 +64,47 @@ function ProfessorQuestoesView({ lista, onVoltar }) {
   }
 
   const abrirNova = () => setForm(formVazio(questoes.length + 1));
+
+  // A prévia roda a cada tecla: o professor vê na hora se o formato foi
+  // entendido, em vez de descobrir só depois de mandar gravar.
+  const previa = parsearQuestoes(texto);
+  const prontas = questoesValidas(previa);
+
+  const importar = async () => {
+    if (prontas.length === 0) {
+      toast.warn('Nenhuma questão pronta para importar. Confira os avisos abaixo.');
+      return;
+    }
+    setSalvando(true);
+    const { data, error } = await supabase.rpc('exergame_importar_questoes', {
+      p_lista_id: lista.id,
+      p_questoes: prontas.map((q) => ({
+        enunciado: q.enunciado,
+        dificuldade: q.dificuldade,
+        alternativas: q.alternativas.map((a) => ({ texto: a.texto, correta: a.correta })),
+      })),
+    });
+    setSalvando(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    const ok = (data ?? []).filter((r) => r.situacao === 'importada').length;
+    toast.success(ok === 1 ? '1 questão importada.' : `${ok} questões importadas.`);
+    setImportando(false);
+    setTexto('');
+    carregar();
+  };
+
+  // Lê um .txt escolhido pelo professor. Word e PDF ficam para depois: exigem
+  // biblioteca de leitura e, no caso do PDF, o texto costuma vir fora de ordem.
+  const lerArquivo = (arquivo) => {
+    if (!arquivo) return;
+    const leitor = new FileReader();
+    leitor.onload = () => setTexto(String(leitor.result ?? ''));
+    leitor.onerror = () => toast.error('Não consegui ler esse arquivo.');
+    leitor.readAsText(arquivo, 'utf-8');
+  };
 
   const abrirEdicao = (q) =>
     setForm({
@@ -191,9 +235,18 @@ function ProfessorQuestoesView({ lista, onVoltar }) {
             {questoes.length} {questoes.length === 1 ? 'questão' : 'questões'}
           </p>
         </div>
-        <button type="button" className="btn-primary btn-inline" onClick={abrirNova}>
-          Nova questão
-        </button>
+        <div className="card-lista__acoes">
+          <button
+            type="button"
+            className="btn-secondary btn-inline"
+            onClick={() => setImportando(true)}
+          >
+            Importar em lote
+          </button>
+          <button type="button" className="btn-primary btn-inline" onClick={abrirNova}>
+            Nova questão
+          </button>
+        </div>
       </div>
 
       {carregando && <p className="estado-vazio">Carregando…</p>}
@@ -232,6 +285,116 @@ function ProfessorQuestoesView({ lista, onVoltar }) {
           </li>
         ))}
       </ol>
+
+      <ModalShell
+        open={importando}
+        onClose={() => setImportando(false)}
+        disabled={salvando}
+        maxWidth={760}
+      >
+        <div className="form-modal">
+          <h3>Importar questões em lote</h3>
+          <p className="card-lista__meta">
+            Cole as questões de uma vez, ou escolha um arquivo <code>.txt</code>. Marque a
+            alternativa correta com <code>*</code>, <code>(x)</code> ou <code>#</code> — antes da
+            letra ou no fim da linha. A dificuldade é opcional, entre colchetes:{' '}
+            <code>1. [média] ...</code>
+          </p>
+
+          <div className="input-group">
+            <label htmlFor="arquivo-questoes">Arquivo de texto (opcional)</label>
+            <input
+              id="arquivo-questoes"
+              type="file"
+              accept=".txt,text/plain"
+              onChange={(e) => lerArquivo(e.target.files?.[0])}
+            />
+          </div>
+
+          <div className="input-group">
+            <label htmlFor="texto-questoes">Questões</label>
+            <textarea
+              id="texto-questoes"
+              rows={12}
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              spellCheck="false"
+              placeholder={EXEMPLO_IMPORTACAO}
+            />
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => setTexto(EXEMPLO_IMPORTACAO)}
+            >
+              Preencher com um exemplo
+            </button>
+          </div>
+
+          {previa.length > 0 && (
+            <>
+              <p className="card-lista__meta">
+                <strong>{prontas.length}</strong> de {previa.length} pronta
+                {previa.length === 1 ? '' : 's'} para importar
+              </p>
+
+              <div className="tabela-wrapper">
+                <table className="tabela">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Enunciado</th>
+                      <th>Alternativas</th>
+                      <th>Resposta</th>
+                      <th>Nível</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previa.map((q, i) => {
+                      const certa = q.alternativas.find((a) => a.correta);
+                      return (
+                        <tr key={`${q.enunciado}-${i}`} className={q.problemas.length ? 'linha--alerta' : ''}>
+                          <td>{i + 1}</td>
+                          <td>
+                            {q.enunciado || <em>vazio</em>}
+                            {q.problemas.length > 0 && (
+                              <div className="texto-pendente">
+                                <small>{q.problemas.join(' · ')}</small>
+                              </div>
+                            )}
+                          </td>
+                          <td>{q.alternativas.length}</td>
+                          <td>
+                            {certa ? (
+                              <span className="texto-ok">{certa.texto}</span>
+                            ) : (
+                              <span className="texto-pendente">—</span>
+                            )}
+                          </td>
+                          <td>{ROTULO_DIFICULDADE[q.dificuldade] ?? q.dificuldade}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          <div className="card-lista__acoes">
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={importar}
+              disabled={salvando || prontas.length === 0}
+            >
+              {salvando ? 'Importando…' : `Importar ${prontas.length} questão(ões)`}
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setImportando(false)}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </ModalShell>
 
       <ModalShell open={Boolean(form)} onClose={() => setForm(null)} disabled={salvando} maxWidth={700}>
         {form && (
