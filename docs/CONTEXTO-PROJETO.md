@@ -417,3 +417,104 @@ Pedidos do usuário anotados para não se perderem:
   usa Gemini (`src/lib/gemini-text.ts`), então há caminho pronto. Aceitaria
   material bagunçado, mas custa por uso, exige chave de API e pode errar — o
   fluxo teria que manter a prévia com conferência, nunca gravar direto.
+
+## 19. Onde o projeto está (29/08/2026)
+
+**No ar:** <https://exergame-iota.vercel.app> — cada push em `main` publica.
+Repositório: <https://github.com/Emanuel-Pedagogo/exergame>.
+Banco: Supabase `bzajsqxtaypgkejbmtxi`, compartilhado com o SACP (§3).
+
+**Objetivo declarado:** o Exergame deixou de ser um app de uma escola e virou
+**produto para vender** a várias escolas. Isso já moldou a arquitetura (§14) e
+continua sendo o critério para decidir o que entra.
+
+Funciona hoje, ponta a ponta e verificado em produção:
+
+| Área | Situação |
+| --- | --- |
+| Aluno joga a lista | pontuação, cronômetro, tentativas, ranking |
+| Gamificação | XP, nível, sequência de dias, 12 conquistas (§16) |
+| Comemoração | som + faíscas no acerto e no fim da lista (§15) |
+| Professor | escolas, turmas, disciplinas, listas, questões, resultados |
+| Alunos | lista da turma, contas com senha, edição de nome/matrícula (§13) |
+| Importação | questões em lote por texto colado (§17) |
+| Isolamento | cada escola só enxerga o que é seu (§14) |
+
+Dados reais em produção: 1 escola, 2 turmas, 33 alunos com conta, 2 listas.
+
+**Uma pendência de investigação:** o usuário relatou que, ao abrir "Questões",
+apareceram as questões de outra lista — e ao excluí-las perdeu as questões
+originais. Não foi possível reproduzir (testados: navegar entre listas, criar
+lista nova e abrir suas questões, recarregar em `?view=prof-questoes`). Como
+mitigação, a confirmação de exclusão passou a citar questão e lista pelo nome, e
+o cabeçalho da tela ganhou disciplina e turma. **Se o relato voltar, peça o passo
+a passo exato antes de mexer no código.**
+
+## 20. Guia para mexer no visual
+
+Não há framework de CSS. Tudo vive em `src/App.css` (~1.200 linhas), organizado
+em seções comentadas — `botões`, `campos`, `login`, `painel aluno`, `chips`,
+`tabelas`, `questões (docente)`, `modais`, `execução`, `toasts`, `responsivo`.
+
+**Design tokens** ficam no `:root` do topo: `--azul`, `--roxo`, `--verde`,
+`--amarelo`, `--vermelho`, `--texto`, `--texto-suave`, `--borda`,
+`--superficie`, `--fundo`, `--raio`, `--altura-controle`, `--sombra`. Mudar a
+paleta do app inteiro é mexer aí, não nas telas.
+
+**Classes reusadas por todas as telas** (não invente equivalentes):
+`.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-inline`, `.input-group`,
+`.chip`, `.card-lista`, `.cards-grid`, `.secao-topo`, `.estado-vazio`,
+`.tabela` + `.tabela-wrapper`, `.form-modal`, `.texto-ok`, `.texto-pendente`,
+`.linha--destaque`, `.aviso-acao`, `.selo-info`, `.barra-xp`.
+
+Antes de criar uma classe, procure no CSS: já aconteceu de inventar
+`.tabela-rolavel` quando o projeto usa `.tabela-wrapper`.
+
+**Contexto de uso que deveria guiar as decisões visuais:** o aluno é criança de
+5º ano, muitas vezes no celular da família, em sala com internet ruim. A tela do
+professor, por outro lado, costuma ser usada no computador, com pressa, entre
+uma aula e outra.
+
+**Pilha de z-index** (respeite ao mexer em sobreposição):
+
+```
+canvas do efeito mágico .... 10100
+confirmação ................ 10060
+toasts ..................... 10050
+overlay de modal ........... 10000
+```
+
+Foi exatamente aqui que o efeito de acerto ficou invisível: o canvas nasceu com
+z-index 70 (copiado do app Participou) e era desenhado atrás do modal.
+
+**Ao mexer no efeito de acerto** (`components/EfeitoMagico.jsx`): a intensidade
+está nas constantes do topo do `disparar` — quantidade de faíscas, confete,
+poeira, velocidade e raio dos anéis. As paletas por tipo (`acerto`, `conclusao`)
+ficam em `PALETAS`. O componente respeita `prefers-reduced-motion` e não desenha
+nada quando não há partícula viva.
+
+**Limitação ao verificar visual por automação:** o painel do navegador fica
+oculto (`document.visibilityState === 'hidden'`), e o navegador congela
+`requestAnimationFrame` em aba oculta — animação nenhuma roda. Para conferir
+canvas, troque `window.requestAnimationFrame` por
+`(cb) => setTimeout(() => cb(performance.now()), 16)`, dispare o efeito, e meça
+com `getImageData` ou exporte o canvas em `toDataURL` para olhar. O efeito só
+começa ~180 ms depois do clique (espera a RPC); capture perto de 430 ms.
+
+## 21. O que vem depois
+
+Em ordem do que o usuário sinalizou querer:
+
+1. **Trabalho visual** — o motivo desta parada. Nada bloqueia: é CSS e
+   componentes, sem dependência de banco.
+2. **Imagens no enunciado e nas alternativas** (§18) — pedido explícito, ainda
+   não feito. Exige bucket próprio no Storage, colunas novas, upload na edição e
+   exibição na execução.
+3. **Importar de Word, de PDF e via IA** (§18).
+4. **Dívidas antigas** (§11): tela de gestor, mover aluno de turma, renomear e
+   apagar turma, questões que não sejam de múltipla escolha.
+5. **LGPD** — com escolas clientes, o app trata dados de menores de terceiros.
+   Contrato definindo controlador e operador, política de privacidade e base
+   legal são pré-requisito do primeiro contrato, não algo para depois. A parte
+   técnica que ajudaria: registro de consentimento, exportação e exclusão de
+   dados de um aluno.

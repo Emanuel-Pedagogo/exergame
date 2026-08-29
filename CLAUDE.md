@@ -5,6 +5,14 @@ Orientações para o Claude Code trabalhar neste repositório.
 **Leia `docs/CONTEXTO-PROJETO.md` primeiro** — modelo de domínio, decisões e
 dívidas conhecidas. Este arquivo só traz comandos e a orientação de arquitetura.
 
+Atalhos para quem está chegando: **§19** diz onde o projeto está hoje, **§20** é
+o guia para mexer no visual (tokens, classes reusadas, pilha de z-index) e
+**§21** lista o que vem depois.
+
+O app é um **produto sendo preparado para venda a várias escolas** — o
+isolamento entre escolas (§14) é o que sustenta isso, e nenhuma mudança deve
+afrouxá-lo. No ar em <https://exergame-iota.vercel.app>.
+
 ## Comandos
 
 ```bash
@@ -42,5 +50,13 @@ SPA React 19 + Vite sobre Supabase. Mesmas convenções do `Sist-Gest-Pedag`:
   `src/utils/appFeedback.js` — nunca `alert()` / `confirm()` nativos. Modais
   estendem `src/components/ModalShell.jsx` e reusam `.btn-primary`,
   `.btn-secondary`, `.input-group`.
+- **Estilo é um arquivo só:** `src/App.css`, sem framework, com as cores em
+  variáveis no `:root`. Antes de criar classe nova, procure a existente — as
+  telas compartilham `.card-lista`, `.tabela-wrapper`, `.form-modal`, `.chip` e
+  companhia. Detalhes e a pilha de z-index em `docs/CONTEXTO-PROJETO.md` §20.
+- **Efeitos com `useEffect` não devem depender de objeto de estado que o próprio
+  fluxo reescreve.** Foi assim que a tela de execução travou: o efeito dependia
+  do objeto da questão, que era recriado ao marcar acerto, e o efeito reagia
+  limpando o resultado. Dependa do id.
 - **Interface e textos em português do Brasil**, inclusive mensagens de commit.
 - Só faça commit/push quando o usuário pedir.
